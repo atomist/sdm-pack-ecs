@@ -19,8 +19,14 @@ import {
     metadata,
 } from "@atomist/sdm";
 
-export const SeedSupport: ExtensionPack = {
+export const EcsSupport: ExtensionPack = {
     ...metadata(),
+    requiredConfigurationValues: [
+        "sdm.aws.ecs.default.launch_type",
+        "sdm.aws.ecs.default.cluster",
+        "sdm.aws.ecs.default.desiredCount",
+        "sdm.aws.ecs.default.networkConfiguration",
+    ],
     configure: sdm => {
         return sdm;
     },

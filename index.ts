@@ -14,4 +14,4 @@
  * limitations under the License.
  */
 
-export { SeedSupport } from "./lib/seed";
+export { EcsSupport } from "./lib/EcsSupport";

@@ -21,7 +21,11 @@
   ],
   "main": "./index.js",
   "types": "./index.d.ts",
-  "dependencies": {},
+  "dependencies": {
+    "lodash": "^4.17.10",
+    "aws-sdk": "^2.353.0",
+    "docker-file-parser": "^1.0.4"
+  },
   "peerDependencies": {
     "@atomist/automation-client": "*",
     "@atomist/sdm": "*",
