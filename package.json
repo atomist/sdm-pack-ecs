@@ -1,8 +1,8 @@
 {
-  "name": "sdm-pack-ecs",
+  "name": "@ipcrmdemo/sdm-pack-ecs",
   "version": "0.1.0",
-  "description": "my new project",
-  "author": "matt",
+  "description": "SDM Pack ECS",
+  "author": "ipcrm",
   "license": "Apache-2.0",
   "homepage": "https://github.com/ipcrm/sdm-pack-ecs#readme",
   "repository": {
