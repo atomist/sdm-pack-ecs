@@ -15,3 +15,4 @@
  */
 
 export { EcsSupport } from "./lib/EcsSupport";
+export { EcsDeploy } from "./lib/goals/EcsDeploy";
