@@ -14,5 +14,5 @@
  * limitations under the License.
  */
 
-export { EcsSupport } from "./lib/EcsSupport";
+export { ecsSupport } from "./lib/EcsSupport";
 export { EcsDeploy } from "./lib/goals/EcsDeploy";
