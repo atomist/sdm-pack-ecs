@@ -16,6 +16,7 @@ import {
     getGoalDefinitionFrom,
     Goal,
     GoalDefinition,
+    GoalDetails,
     GoalInvocation,
     Implementation,
     IndependentOfEnvironment,
@@ -108,10 +109,12 @@ export function executeEcsDeploy(): ExecuteGoal {
         );
 
         const results = await Promise.all(deployments.map(deployment => {
-            const endpoints: Array<{label?: string, url: string}> = [];
+            const endpoints: GoalDetails["externalUrls"] = [];
             deployment.externalUrls.map( e => {
                 endpoints.push({url: e});
             });
+
+            logger.debug(`Endpoint details for ${deployment.projectName}: ${JSON.stringify(endpoints)}`);
 
             // tslint:disable-next-line:no-object-literal-type-assertion
             return {
