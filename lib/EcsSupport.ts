@@ -29,6 +29,8 @@ export function ecsSupport(): ExtensionPack {
             "sdm.aws.ecs.default.networkConfiguration",
         ],
         configure: sdm => {
+            // TODO: Create service/task def files transform
+            // TODO: First push offer to create ^^ files
             return sdm;
         },
     };

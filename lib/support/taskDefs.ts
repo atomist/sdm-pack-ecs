@@ -7,23 +7,19 @@ export function ecsListTaskDefinitions(
   ecsFamily: string,
 ): Promise<string[]> {
     return new Promise<string[]> ( async (resolve, reject) => {
-        await ecsService.listTaskDefinitionFamilies({status: "ACTIVE"}).promise()
-            .then( async data => {
-                if (data.families.includes(ecsFamily)) {
-                    logger.info("Entering ecsListTaskDefinition - data.families");
-                    await ecsService.listTaskDefinitions({familyPrefix: ecsFamily}).promise()
-                    .then( d => {
-                        resolve(d.taskDefinitionArns);
-                    });
-                } else {
-                    resolve([]);
-                }
-            })
-            .catch( reason => {
-                logger.debug(reason.message);
-                reject(reason.message);
-            });
-        });
+        try {
+          const data = await ecsService.listTaskDefinitionFamilies({status: "ACTIVE"}).promise();
+          if (data.families.includes(ecsFamily)) {
+            const result = await ecsService.listTaskDefinitions({familyPrefix: ecsFamily}).promise();
+            resolve(result.taskDefinitionArns);
+          } else {
+            resolve([]);
+          }
+        } catch (error) {
+            logger.debug(error);
+            reject(error);
+        }
+    });
 }
 
 // Supply one of the entries from ecsListTaskDefinitions and get returned the json definition
@@ -32,21 +28,15 @@ export async function ecsGetTaskDefinition(
   ecsTaskDef: string,
   ): Promise<ECS.Types.DescribeTaskDefinitionResponse> {
     return new Promise<ECS.Types.DescribeTaskDefinitionResponse>(async (resolve, reject) => {
-
-      if (ecsTaskDef) {
-        // If there was definitions, lets get the last one to compare with
-        const tdfVersion = ecsTaskDef.split(":")[6];
-        const tdfFamily = ecsTaskDef.split(":")[5].split("/")[1];
-
-        await ecsService.describeTaskDefinition(
-          { taskDefinition: `${tdfFamily}:${tdfVersion}` }).promise()
-            .then( d1 => {
-                resolve(d1);
-            })
-            .catch( reason => {
-                logger.error(reason.message);
-                reject(reason.message);
-            });
+      try {
+          // If there was definitions, lets get the last one to compare with
+          const tdfVersion = ecsTaskDef.split(":")[6];
+          const tdfFamily = ecsTaskDef.split(":")[5].split("/")[1];
+          const result = await ecsService.describeTaskDefinition({ taskDefinition: `${tdfFamily}:${tdfVersion}` }).promise();
+          resolve(result);
+      } catch (error) {
+          logger.error(error);
+          reject(error);
       }
     });
 }
@@ -55,17 +45,14 @@ export async function ecsGetTaskDefinition(
 export async function ecsRegisterTask(
   ecsService: ECS,
   ecsParams: ECS.Types.RegisterTaskDefinitionRequest): Promise<ECS.Types.TaskDefinition> {
-    return new Promise<ECS.Types.TaskDefinition>((resolve, reject) => {
-
-      const register = ecsService.registerTaskDefinition(ecsParams).promise();
-      register
-        .then(data => {
-         resolve(data.taskDefinition);
-        })
-        .catch(reason => {
-          logger.debug(reason.message);
-          reject(reason.message);
-        });
+    return new Promise<ECS.Types.TaskDefinition>(async (resolve, reject) => {
+      try {
+          const result = await ecsService.registerTaskDefinition(ecsParams).promise()
+          resolve(result.taskDefinition);
+      } catch (error) {
+          logger.debug(error);
+          reject(error);
+      }
     });
 }
 
