@@ -250,27 +250,29 @@ export class EcsDeployer implements Deployer<EcsDeploymentInfo, EcsDeployment> {
                 const matchingTasks = await ecs.describeTasks({ tasks: arns.taskArns, cluster: definition.cluster }).promise();
 
                 // For each tasks, pull out the network interface EIN
-                const result: string[] = [];
-                matchingTasks.tasks.forEach( async t => {
-                    // Get the EIN for this interface
-                    const ein = t.attachments[0].details[1].value;
+                const result = await new Promise<string[]> ((res, rej) => {
+                        matchingTasks.tasks.forEach( async t => {
+                        // Get the EIN for this interface
+                        const ein = t.attachments[0].details[1].value;
 
-                    // Lookup the network interface by EIN
-                    const interfaceData = await ec2.describeNetworkInterfaces({ NetworkInterfaceIds: [ ein ]}).promise();
+                        // Lookup the network interface by EIN
+                        const interfaceData = await ec2.describeNetworkInterfaces({ NetworkInterfaceIds: [ ein ]}).promise();
 
-                    // If there is a public IP assigned, pull out the data
-                    if (interfaceData.NetworkInterfaces[0].Association.PublicIp) {
-                        const publicIp = interfaceData.NetworkInterfaces[0].Association.PublicIp;
-                        // For each container, build the endpoint URL
-                        // Return the resulting map of urls
-                        taskDef.containerDefinitions.forEach( c => {
-                                const proto = c.portMappings[0].protocol;
-                                const port = c.portMappings[0].hostPort;
-                                result.push(`${proto}://${publicIp}:${port}`);
-                        });
-                    }
+                        // If there is a public IP assigned, pull out the data
+                        if (interfaceData.NetworkInterfaces[0].Association.PublicIp) {
+                                const publicIp = interfaceData.NetworkInterfaces[0].Association.PublicIp;
+                                // For each container, build the endpoint URL
+                                // Return the resulting map of urls
+                                res(taskDef.containerDefinitions.map( c => {
+                                        const proto = c.portMappings[0].protocol;
+                                        const port = c.portMappings[0].hostPort;
+                                        return(`${proto}://${publicIp}:${port}`);
+                                }));
+                        } else {
+                            res([]);
+                        }
+                    });
                 });
-                resolve(result);
             } catch (error) {
                 logger.error(error);
                 reject(error);
