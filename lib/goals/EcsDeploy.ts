@@ -273,6 +273,7 @@ export class EcsDeployer implements Deployer<EcsDeploymentInfo, EcsDeployment> {
                         }
                     });
                 });
+                resolve(result);
             } catch (error) {
                 logger.error(error);
                 reject(error);
