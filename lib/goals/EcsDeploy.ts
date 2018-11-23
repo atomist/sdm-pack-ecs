@@ -43,6 +43,7 @@ const EcsGoalDefinition: GoalDefinition = {
 export interface EcsDeployRegistration extends FulfillmentRegistration {
     serviceRequest: Partial<ECS.Types.CreateServiceRequest>;
     taskDefinition?: ECS.Types.RegisterTaskDefinitionRequest;
+    externalUrls?: string[];
 }
 
 // tslint:disable-next-line:max-line-length
@@ -107,11 +108,15 @@ export function executeEcsDeploy(): ExecuteGoal {
         );
 
         const results = await Promise.all(deployments.map(deployment => {
-            // TODO: raise appropriate return code
+            const endpoints: Array<{label?: string, url: string}> = [];
+            deployment.externalUrls.map( e => {
+                endpoints.push({url: e});
+            });
+
             // tslint:disable-next-line:no-object-literal-type-assertion
             return {
                 code: 0,
-                targetUrl: deployment.endpoint,
+                externalUrls: endpoints,
             } as ExecuteGoalResult;
         }));
 
@@ -124,6 +129,7 @@ export interface EcsDeploymentInfo extends TargetInfo, ECS.Types.CreateServiceRe
 export interface EcsDeployment extends Deployment {
     clusterName: string;
     projectName: string;
+    externalUrls?: string[];
 }
 
 // This function converts a CreateServiceRequest to an UpdateServiceRequest
@@ -204,7 +210,7 @@ export class EcsDeployer implements Deployer<EcsDeploymentInfo, EcsDeployment> {
                         const res = await this.getEndpointData(params, serviceChange.response);
 
                         resolve({
-                            endpoint: res.join(","),
+                            externalUrls: res,
                             clusterName: serviceChange.response.service.clusterArn,
                             projectName: esi.name,
                         });
