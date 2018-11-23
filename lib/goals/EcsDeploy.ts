@@ -227,60 +227,46 @@ export class EcsDeployer implements Deployer<EcsDeploymentInfo, EcsDeployment> {
             const ec2 = new EC2();
 
             // List all tasks in this cluster that match our servicename
-            await ecs.listTasks(
-                { serviceName: data.service.serviceName, cluster: definition.cluster }).promise()
-                .then( async arns => {
-                    let taskDef: ECS.Types.TaskDefinition;
+            try {
+                const arns = await ecs.listTasks({ serviceName: data.service.serviceName, cluster: definition.cluster }).promise();
+                let taskDef: ECS.Types.TaskDefinition;
 
-                    // Get all task definitions
-                    await ecs.describeTaskDefinition(
-                        { taskDefinition: data.service.taskDefinition }).promise()
-                        .then( async tdata => {
+                // Get all task definitions
+                const tdata =  await ecs.describeTaskDefinition({ taskDefinition: data.service.taskDefinition }).promise();
 
-                            // Get all the tasks that we found above
-                            taskDef = tdata.taskDefinition;
-                            await ecs.describeTasks(
-                                { tasks: arns.taskArns, cluster: definition.cluster }).promise()
-                                .then( async d => {
+                // Get all the tasks that we found above
+                taskDef = tdata.taskDefinition;
 
-                                    // For each tasks, pull out the network interface EIN
-                                    d.tasks.forEach( async t => {
-                                        // Get the EIN for this interface
-                                        const ein = d.tasks[0].attachments[0].details[1].value;
+                // Describe all tasks (for our machine service)
+                const matchingTasks = await ecs.describeTasks({ tasks: arns.taskArns, cluster: definition.cluster }).promise();
 
-                                        // Lookup the network interface by EIN
-                                        await ec2.describeNetworkInterfaces(
-                                            { NetworkInterfaceIds: [ ein ]}).promise()
-                                            .then( idata => {
+                // For each tasks, pull out the network interface EIN
+                const result: string[] = [];
+                matchingTasks.tasks.forEach( async t => {
+                    // Get the EIN for this interface
+                    const ein = matchingTasks.tasks[0].attachments[0].details[1].value;
 
-                                                // If there is a public IP assigned, pull out the data
-                                                if (idata.NetworkInterfaces[0].Association.PublicIp) {
-                                                    const publicIp = idata.NetworkInterfaces[0].Association.PublicIp;
-                                                    // For each container, build the endpoint URL
-                                                    // Return the resulting map of urls
-                                                    resolve(
-                                                        taskDef.containerDefinitions.map( c => {
-                                                            const proto = c.portMappings[0].protocol;
-                                                            const port = c.portMappings[0].hostPort;
-                                                            return `${proto}://${publicIp}:${port}`;
-                                                        }),
-                                                    );
-                                                } else {
-                                                    // If there are no public IPs set, just return a null list since
-                                                    // we can't build the URLs
-                                                    // TODO: Check for LB info
-                                                    resolve([]);
-                                                }
-                                            });
-                                    });
-                                });
-                            });
-                        })
-                // If it fails, return the reason
-                .catch( reason => {
-                    reject(reason);
+                    // Lookup the network interface by EIN
+                    const interfaceData = await ec2.describeNetworkInterfaces({ NetworkInterfaceIds: [ ein ]}).promise();
+
+                    // If there is a public IP assigned, pull out the data
+                    if (interfaceData.NetworkInterfaces[0].Association.PublicIp) {
+                        const publicIp = interfaceData.NetworkInterfaces[0].Association.PublicIp;
+                        // For each container, build the endpoint URL
+                        // Return the resulting map of urls
+                        taskDef.containerDefinitions.forEach( c => {
+                                const proto = c.portMappings[0].protocol;
+                                const port = c.portMappings[0].hostPort;
+                                result.push(`${proto}://${publicIp}:${port}`);
+                        });
+                    }
                 });
-            });
+                resolve(result);
+            } catch (error) {
+                logger.error(error);
+                reject(error);
+            }
+        });
     }
 
     public async undeploy(): Promise<void> {
