@@ -244,7 +244,7 @@ export class EcsDeployer implements Deployer<EcsDeploymentInfo, EcsDeployment> {
                 const result: string[] = [];
                 matchingTasks.tasks.forEach( async t => {
                     // Get the EIN for this interface
-                    const ein = matchingTasks.tasks[0].attachments[0].details[1].value;
+                    const ein = t.attachments[0].details[1].value;
 
                     // Lookup the network interface by EIN
                     const interfaceData = await ec2.describeNetworkInterfaces({ NetworkInterfaceIds: [ ein ]}).promise();
