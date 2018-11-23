@@ -26,7 +26,7 @@ export function ecsSupport(): ExtensionPack {
         requiredConfigurationValues: [
             "sdm.aws.ecs.default.launch_type",
             "sdm.aws.ecs.default.cluster",
-            {path: "sdm.aws.ecs.default.desiredCount", type: ConfigurationValueType.Number},
+            // {path: "sdm.aws.ecs.default.desiredCount", type: ConfigurationValueType.Number}, (blocked by sdm/#578)
         ],
         configure: sdm => {
             // TODO: Create service/task def files transform
