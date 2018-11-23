@@ -179,9 +179,7 @@ export class EcsDeployer implements Deployer<EcsDeploymentInfo, EcsDeployment> {
                     }
                 });
 
-                let serviceChange: any = {
-                    service: params.serviceName,
-                };
+                let serviceChange: any;
                 if (updateOrCreate !== 0) {
                     // If we are updating, we need to build an UpdateServiceRequest from the data
                     //  we got in params (which is a CreateServiceRequest, not update)
@@ -190,12 +188,14 @@ export class EcsDeployer implements Deployer<EcsDeploymentInfo, EcsDeployment> {
                     // Update service with new definition
                     serviceChange = {
                         response: await ecs.updateService(updateService).promise(),
+                        service: params.serviceName,
                     };
 
                 } else {
                     // New Service, just create
                     serviceChange = {
                         response: await ecs.createService(params).promise(),
+                        service: params.serviceName,
                     };
                 }
 
