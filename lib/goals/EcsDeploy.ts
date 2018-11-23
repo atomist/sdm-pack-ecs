@@ -168,8 +168,8 @@ export class EcsDeployer implements Deployer<EcsDeploymentInfo, EcsDeployment> {
         const ecs = new ECS();
         return [await new Promise<EcsDeployment>(async (resolve, reject) => {
 
-            await ecs.listServices({cluster: params.cluster}).promise()
-            .then( async data => {
+            try {
+                const data = await ecs.listServices({cluster: params.cluster}).promise();
                 let updateOrCreate = 0;
                 data.serviceArns.forEach(s => {
                     // arn:aws:ecs:us-east-1:247672886355:service/ecs-test-1-production
@@ -178,52 +178,43 @@ export class EcsDeployer implements Deployer<EcsDeploymentInfo, EcsDeployment> {
                         updateOrCreate += 1;
                     }
                 });
+
+                let serviceChange: any = {
+                    service: params.serviceName,
+                };
                 if (updateOrCreate !== 0) {
                     // If we are updating, we need to build an UpdateServiceRequest from the data
                     //  we got in params (which is a CreateServiceRequest, not update)
                     const updateService = await createUpdateServiceRequest(params);
 
                     // Update service with new definition
-                    await ecs.updateService(updateService).promise()
-                    .then( async d => {
-                        // Wait for service to come-up/converge
-                        await ecs.waitFor("servicesStable",
-                            { services: [updateService.service], cluster: updateService.cluster }).promise()
-                                .then( async () => {
-                                    await this.getEndpointData(params, d)
-                                        .then( res => {
-                                            resolve({
-                                                endpoint: res.join(","),
-                                                clusterName: d.service.clusterArn,
-                                                projectName: esi.name,
-                                            });
-                                        });
-                                });
-                    });
+                    serviceChange = {
+                        response: await ecs.updateService(updateService).promise(),
+                    };
+
                 } else {
                     // New Service, just create
-                    await ecs.createService(params).promise()
-                    .then( async d1 => {
-                            await ecs.waitFor("servicesStable",
-                                { cluster: params.cluster, services: [ params.serviceName] }).promise()
-                                    .then( async () => {
-                                        await this.getEndpointData(params, d1)
-                                            .then( res => {
-                                                resolve({
-                                                    endpoint: res.join(","),
-                                                    clusterName: d1.service.clusterArn,
-                                                    projectName: esi.name,
-                                                });
-                                            });
-                                    });
+                    serviceChange = {
+                        response: await ecs.createService(params).promise(),
+                    };
+                }
 
+                await ecs.waitFor("servicesStable", { services: [serviceChange.service], cluster: params.cluster }).promise()
+                    .then( async () => {
+                        const res = await this.getEndpointData(params, serviceChange.response);
+
+                        resolve({
+                            endpoint: res.join(","),
+                            clusterName: serviceChange.response.service.clusterArn,
+                            projectName: esi.name,
+                        });
                     });
 
-                }
-            })
-            .catch( reason => {
-                reject(reason);
-            });
+            } catch (error) {
+                logger.error(error);
+                reject(error);
+            }
+
         })];
     }
 
