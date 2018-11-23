@@ -109,6 +109,7 @@ export function executeEcsDeploy(): ExecuteGoal {
         );
 
         const results = await Promise.all(deployments.map(deployment => {
+            logger.debug(`Endpoint details: ${JSON.stringify(deployment.externalUrls)}`);
             const endpoints: GoalDetails["externalUrls"] = [];
             deployment.externalUrls.map( e => {
                 endpoints.push({url: e});
@@ -273,6 +274,7 @@ export class EcsDeployer implements Deployer<EcsDeploymentInfo, EcsDeployment> {
                         }
                     });
                 });
+                logger.debug(`Endpoint data for ${data.service.serviceName}: ${JSON.stringify(result)}`);
                 resolve(result);
             } catch (error) {
                 logger.error(error);
