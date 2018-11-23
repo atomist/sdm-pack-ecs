@@ -47,7 +47,7 @@ export async function ecsRegisterTask(
   ecsParams: ECS.Types.RegisterTaskDefinitionRequest): Promise<ECS.Types.TaskDefinition> {
     return new Promise<ECS.Types.TaskDefinition>(async (resolve, reject) => {
       try {
-          const result = await ecsService.registerTaskDefinition(ecsParams).promise()
+          const result = await ecsService.registerTaskDefinition(ecsParams).promise();
           resolve(result.taskDefinition);
       } catch (error) {
           logger.debug(error);
