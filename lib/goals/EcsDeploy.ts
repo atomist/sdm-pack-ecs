@@ -251,8 +251,9 @@ export class EcsDeployer implements Deployer<EcsDeploymentInfo, EcsDeployment> {
                 const matchingTasks = await ecs.describeTasks({ tasks: arns.taskArns, cluster: definition.cluster }).promise();
 
                 // For each tasks, pull out the network interface EIN
-                const result = await new Promise<string[]> ((res, rej) => {
-                        matchingTasks.tasks.forEach( async t => {
+                resolve (
+                    await new Promise<string[]> ((res, rej) => {
+                        matchingTasks.tasks.map( async t => {
                         // Get the EIN for this interface
                         const ein = t.attachments[0].details[1].value;
 
@@ -264,18 +265,15 @@ export class EcsDeployer implements Deployer<EcsDeploymentInfo, EcsDeployment> {
                                 const publicIp = interfaceData.NetworkInterfaces[0].Association.PublicIp;
                                 // For each container, build the endpoint URL
                                 // Return the resulting map of urls
-                                res(taskDef.containerDefinitions.map( c => {
+                                taskDef.containerDefinitions.map( c => {
                                         const proto = c.portMappings[0].protocol;
                                         const port = c.portMappings[0].hostPort;
                                         return(`${proto}://${publicIp}:${port}`);
-                                }));
-                        } else {
-                            res([]);
+                                });
                         }
-                    });
-                });
-                logger.debug(`Endpoint data for ${data.service.serviceName}: ${JSON.stringify(result)}`);
-                resolve(result);
+                        });
+                    }),
+                );
             } catch (error) {
                 logger.error(error);
                 reject(error);
