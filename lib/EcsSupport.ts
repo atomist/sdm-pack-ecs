@@ -15,6 +15,7 @@
  */
 
 import {
+    ConfigurationValueType,
     ExtensionPack,
     metadata,
 } from "@atomist/sdm";
@@ -25,8 +26,7 @@ export function ecsSupport(): ExtensionPack {
         requiredConfigurationValues: [
             "sdm.aws.ecs.default.launch_type",
             "sdm.aws.ecs.default.cluster",
-            "sdm.aws.ecs.default.desiredCount",
-            "sdm.aws.ecs.default.networkConfiguration",
+            {path: "sdm.aws.ecs.default.desiredCount", type: ConfigurationValueType.Number},
         ],
         configure: sdm => {
             // TODO: Create service/task def files transform
