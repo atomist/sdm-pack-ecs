@@ -241,13 +241,12 @@ export class EcsDeployer implements Deployer<EcsDeploymentInfo, EcsDeployment> {
                         // If there is a public IP assigned, pull out the data
                         if (interfaceData.NetworkInterfaces[0].Association.PublicIp) {
                                 const publicIp = interfaceData.NetworkInterfaces[0].Association.PublicIp;
-                                // For each container, build the endpoint URL
-                                // Return the resulting map of urls
-                                taskDef.containerDefinitions.map( c => {
-                                        const proto = c.portMappings[0].protocol;
-                                        const port = c.portMappings[0].hostPort;
-                                        return(`${proto}://${publicIp}:${port}`);
-                                });
+                                // For each task, build the endpoint URL
+                                //   This is only valuable for single container tasks - any more then that the data becomes
+                                //   useless b/c there is too many endpoints; you have to use service discovery
+                                const proto = taskDef.containerDefinitions[0].portMappings[0].protocol;
+                                const port = taskDef.containerDefinitions[0].portMappings[0].hostPort;
+                                return(`${proto}://${publicIp}:${port}`);
                         } else {
                             return undefined;
                         }
