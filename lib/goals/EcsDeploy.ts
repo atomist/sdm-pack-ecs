@@ -100,7 +100,8 @@ export class EcsDeployer implements Deployer<EcsDeploymentInfo, EcsDeployment> {
         logger.info("Deploying app [%j] to ECS [%s]", da, esi.description);
 
         // Setup ECS session
-        const ecs = createEcsSession(esi.region);
+        const awsRegion = esi.region;
+        const ecs = createEcsSession(awsRegion);
 
         // Cleanup extra target info
         const params = esi;
@@ -144,7 +145,7 @@ export class EcsDeployer implements Deployer<EcsDeploymentInfo, EcsDeployment> {
 
                 await ecs.waitFor("servicesStable", { services: [serviceChange.service], cluster: params.cluster }).promise()
                     .then( async () => {
-                        const res = await this.getEndpointData(params, serviceChange.response, esi.region);
+                        const res = await this.getEndpointData(params, serviceChange.response, awsRegion);
 
                         resolve({
                             externalUrls: res,
