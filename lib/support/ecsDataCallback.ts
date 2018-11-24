@@ -1,6 +1,7 @@
 import { logger } from "@atomist/automation-client";
 import { RepoContext, SdmGoalEvent} from "@atomist/sdm";
 import { ECS } from "aws-sdk";
+import { createEcsSession } from "../EcsSupport";
 import { EcsDeploy, EcsDeployRegistration } from "../goals/EcsDeploy";
 import { cmpSuppliedTaskDefinition, ecsGetTaskDefinition, ecsListTaskDefinitions, ecsRegisterTask } from "./taskDefs";
 
@@ -85,7 +86,7 @@ export function ecsDataCallback(
 
             // Retrieve existing Task definitions, if we find a matching revision - use that
             //  otherwise create a new task definition
-            const ecs = new ECS();
+            const ecs = createEcsSession();
 
             // Pull latest def info & compare it to the latest
             let goodTaskDefinition: ECS.Types.TaskDefinition;

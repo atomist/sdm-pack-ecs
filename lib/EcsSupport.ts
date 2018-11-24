@@ -14,11 +14,13 @@
  * limitations under the License.
  */
 
+import { configurationValue } from "@atomist/automation-client";
 import {
-    ConfigurationValueType,
     ExtensionPack,
     metadata,
 } from "@atomist/sdm";
+import { EC2, ECS } from "aws-sdk";
+import AWS = require("aws-sdk");
 
 export function ecsSupport(): ExtensionPack {
     return {
@@ -26,6 +28,9 @@ export function ecsSupport(): ExtensionPack {
         requiredConfigurationValues: [
             "sdm.aws.ecs.default.launch_type",
             "sdm.aws.ecs.default.cluster",
+            "sdm.aws.accessKey",
+            "sdm.aws.secretKey",
+            "sdm.aws.region",
             // {path: "sdm.aws.ecs.default.desiredCount", type: ConfigurationValueType.Number}, (blocked by sdm/#578)
         ],
         configure: sdm => {
@@ -34,4 +39,25 @@ export function ecsSupport(): ExtensionPack {
             return sdm;
         },
     };
+}
+
+// TODO: Make region dynamic
+export function createEcsSession(): ECS {
+    return new ECS({
+        region: configurationValue<string>("sdm.aws.region"),
+        credentials: new AWS.Credentials({
+            accessKeyId: configurationValue<string>("sdm.aws.accessKey"),
+            secretAccessKey: configurationValue<string>("sdm.aws.secretKey"),
+        }),
+    });
+}
+
+export function createEc2Session(): EC2 {
+    return new EC2({
+        region: configurationValue<string>("sdm.aws.region"),
+        credentials: new AWS.Credentials({
+            accessKeyId: configurationValue<string>("sdm.aws.accessKey"),
+            secretAccessKey: configurationValue<string>("sdm.aws.secretKey"),
+        }),
+    });
 }

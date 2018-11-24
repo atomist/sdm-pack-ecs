@@ -23,6 +23,7 @@ import {
 import { EC2, ECS } from "aws-sdk";
 import _ = require("lodash");
 import { executeEcsDeploy } from "../deploy/ecsApi";
+import { createEc2Session, createEcsSession } from "../EcsSupport";
 import { ecsDataCallback } from "../support/ecsDataCallback";
 import { createUpdateServiceRequest } from "../support/ecsServiceRequest";
 
@@ -101,7 +102,7 @@ export class EcsDeployer implements Deployer<EcsDeploymentInfo, EcsDeployment> {
         delete params.description;
 
         // Run Deployment
-        const ecs = new ECS();
+        const ecs = createEcsSession();
         return [await new Promise<EcsDeployment>(async (resolve, reject) => {
 
             try {
@@ -196,8 +197,8 @@ export class EcsDeployer implements Deployer<EcsDeploymentInfo, EcsDeployment> {
         data: ECS.Types.UpdateServiceResponse | ECS.Types.CreateServiceResponse,
         ): Promise<string[]> {
         return new Promise<string[]>( async (resolve, reject) => {
-            const ecs = new ECS();
-            const ec2 = new EC2();
+            const ecs = createEcsSession();
+            const ec2 = createEc2Session();
 
             // List all tasks in this cluster that match our servicename
             try {
