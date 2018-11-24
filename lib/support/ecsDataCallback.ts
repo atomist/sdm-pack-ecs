@@ -67,8 +67,6 @@ export function ecsDataCallback(
                             portMappings: [{
                                 containerPort: exposeCommands[0].args[0],
                                 hostPort: exposeCommands[0].args[0],
-                                // TODO: Expose default protocol in settings
-                                protocol: "http",
                             }],
                         },
                     ];
