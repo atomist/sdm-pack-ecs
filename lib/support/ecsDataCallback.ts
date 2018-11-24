@@ -86,7 +86,7 @@ export function ecsDataCallback(
 
             // Retrieve existing Task definitions, if we find a matching revision - use that
             //  otherwise create a new task definition
-            const ecs = createEcsSession();
+            const ecs = createEcsSession(registration.region);
 
             // Pull latest def info & compare it to the latest
             let goodTaskDefinition: ECS.Types.TaskDefinition;

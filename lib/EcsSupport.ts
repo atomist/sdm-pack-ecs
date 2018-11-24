@@ -41,10 +41,9 @@ export function ecsSupport(): ExtensionPack {
     };
 }
 
-// TODO: Make region dynamic
-export function createEcsSession(): ECS {
+export function createEcsSession(region: string): ECS {
     return new ECS({
-        region: configurationValue<string>("sdm.aws.region"),
+        region,
         credentials: new AWS.Credentials({
             accessKeyId: configurationValue<string>("sdm.aws.accessKey"),
             secretAccessKey: configurationValue<string>("sdm.aws.secretKey"),
@@ -52,9 +51,9 @@ export function createEcsSession(): ECS {
     });
 }
 
-export function createEc2Session(): EC2 {
+export function createEc2Session(region: string): EC2 {
     return new EC2({
-        region: configurationValue<string>("sdm.aws.region"),
+        region,
         credentials: new AWS.Credentials({
             accessKeyId: configurationValue<string>("sdm.aws.accessKey"),
             secretAccessKey: configurationValue<string>("sdm.aws.secretKey"),

@@ -44,6 +44,7 @@ export interface EcsDeployRegistration extends FulfillmentRegistration {
     serviceRequest: Partial<ECS.Types.CreateServiceRequest>;
     taskDefinition?: ECS.Types.RegisterTaskDefinitionRequest;
     externalUrls?: string[];
+    region: string;
 }
 
 // tslint:disable-next-line:max-line-length
@@ -77,7 +78,9 @@ export class EcsDeploy extends FulfillableGoalWithRegistrations<EcsDeployRegistr
     }
 }
 
-export interface EcsDeploymentInfo extends TargetInfo, ECS.Types.CreateServiceRequest {}
+export interface EcsDeploymentInfo extends TargetInfo, ECS.Types.CreateServiceRequest {
+    region: string;
+}
 
 export interface EcsDeployment extends Deployment {
     clusterName: string;
@@ -102,7 +105,7 @@ export class EcsDeployer implements Deployer<EcsDeploymentInfo, EcsDeployment> {
         delete params.description;
 
         // Run Deployment
-        const ecs = createEcsSession();
+        const ecs = createEcsSession(esi.region);
         return [await new Promise<EcsDeployment>(async (resolve, reject) => {
 
             try {
@@ -138,7 +141,7 @@ export class EcsDeployer implements Deployer<EcsDeploymentInfo, EcsDeployment> {
 
                 await ecs.waitFor("servicesStable", { services: [serviceChange.service], cluster: params.cluster }).promise()
                     .then( async () => {
-                        const res = await this.getEndpointData(params, serviceChange.response);
+                        const res = await this.getEndpointData(params, serviceChange.response, esi.region);
 
                         resolve({
                             externalUrls: res,
@@ -195,10 +198,11 @@ export class EcsDeployer implements Deployer<EcsDeploymentInfo, EcsDeployment> {
     public async getEndpointData(
         definition: ECS.Types.UpdateServiceRequest | ECS.Types.CreateServiceRequest,
         data: ECS.Types.UpdateServiceResponse | ECS.Types.CreateServiceResponse,
+        region: string,
         ): Promise<string[]> {
         return new Promise<string[]>( async (resolve, reject) => {
-            const ecs = createEcsSession();
-            const ec2 = createEc2Session();
+            const ecs = createEcsSession(region);
+            const ec2 = createEc2Session(region);
 
             // List all tasks in this cluster that match our servicename
             try {
