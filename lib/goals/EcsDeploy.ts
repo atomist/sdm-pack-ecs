@@ -99,6 +99,9 @@ export class EcsDeployer implements Deployer<EcsDeploymentInfo, EcsDeployment> {
                         credentials: ProjectOperationCredentials): Promise<EcsDeployment[]> {
         logger.info("Deploying app [%j] to ECS [%s]", da, esi.description);
 
+        // Setup ECS session
+        const ecs = createEcsSession(esi.region);
+
         // Cleanup extra target info
         const params = esi;
         delete params.name;
@@ -106,7 +109,6 @@ export class EcsDeployer implements Deployer<EcsDeploymentInfo, EcsDeployment> {
         delete params.region;
 
         // Run Deployment
-        const ecs = createEcsSession(esi.region);
         return [await new Promise<EcsDeployment>(async (resolve, reject) => {
 
             try {
