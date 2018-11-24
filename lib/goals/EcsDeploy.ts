@@ -248,8 +248,9 @@ export class EcsDeployer implements Deployer<EcsDeploymentInfo, EcsDeployment> {
                                         const port = c.portMappings[0].hostPort;
                                         return(`${proto}://${publicIp}:${port}`);
                                 });
+                        } else {
+                            return undefined;
                         }
-                        return "n/a";
                 });
 
                 Promise.all(q).then( values => {
