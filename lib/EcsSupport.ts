@@ -30,7 +30,6 @@ export function ecsSupport(): ExtensionPack {
             "sdm.aws.ecs.default.cluster",
             "sdm.aws.accessKey",
             "sdm.aws.secretKey",
-            "sdm.aws.region",
             // {path: "sdm.aws.ecs.default.desiredCount", type: ConfigurationValueType.Number}, (blocked by sdm/#578)
         ],
         configure: sdm => {
