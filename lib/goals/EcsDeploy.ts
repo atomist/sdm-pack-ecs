@@ -103,6 +103,7 @@ export class EcsDeployer implements Deployer<EcsDeploymentInfo, EcsDeployment> {
         const params = esi;
         delete params.name;
         delete params.description;
+        delete params.region;
 
         // Run Deployment
         const ecs = createEcsSession(esi.region);
