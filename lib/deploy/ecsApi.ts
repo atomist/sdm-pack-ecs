@@ -23,7 +23,7 @@ export function executeEcsDeploy(): ExecuteGoal {
         const deployInfo: EcsDeploymentInfo = {
             name: sdmGoal.repo.name,
             description: sdmGoal.name,
-            region: _.get(sdmGoal.data, "region"),
+            region: goalData.region,
             ...goalData.serviceRequest,
         };
 

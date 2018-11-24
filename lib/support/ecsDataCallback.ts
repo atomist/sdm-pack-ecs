@@ -1,8 +1,9 @@
-import { configurationValue, logger } from "@atomist/automation-client";
+import {logger } from "@atomist/automation-client";
 import { RepoContext, SdmGoalEvent} from "@atomist/sdm";
 import { ECS } from "aws-sdk";
 import { createEcsSession } from "../EcsSupport";
 import { EcsDeploy, EcsDeployRegistration } from "../goals/EcsDeploy";
+import { createValidServiceRequest } from "./ecsServiceRequest";
 import { cmpSuppliedTaskDefinition, ecsGetTaskDefinition, ecsListTaskDefinitions, ecsRegisterTask } from "./taskDefs";
 
 export function ecsDataCallback(
@@ -85,6 +86,7 @@ export function ecsDataCallback(
             }
 
             // Populate service request
+            const validServiceRequest = await createValidServiceRequest(registration.serviceRequest);
 
             // Retrieve existing Task definitions, if we find a matching revision - use that
             //  otherwise create a new task definition
@@ -119,8 +121,8 @@ export function ecsDataCallback(
             // Update Service Request with up to date task definition
             let newServiceRequest: ECS.Types.CreateServiceRequest;
             newServiceRequest = {
-                ...registration.serviceRequest,
-                serviceName: registration.serviceRequest ? registration.serviceRequest.serviceName : sdmGoal.repo.name,
+                ...validServiceRequest,
+                serviceName: validServiceRequest.serviceName ? validServiceRequest.serviceName : sdmGoal.repo.name,
                 taskDefinition: `${goodTaskDefinition.family}:${goodTaskDefinition.revision}`,
             };
 
@@ -129,6 +131,7 @@ export function ecsDataCallback(
                 data: JSON.stringify({
                     serviceRequest: newServiceRequest,
                     taskDefinition: goodTaskDefinition,
+                    region: registration.region,
                 }),
             };
         });

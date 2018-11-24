@@ -1,5 +1,5 @@
 import { configurationValue } from "@atomist/automation-client";
-import { EC2, ECS, ECSCredentials } from "aws-sdk";
+import { ECS } from "aws-sdk";
 
 // This function converts a CreateServiceRequest to an UpdateServiceRequest
 // tslint:disable-next-line:cyclomatic-complexity
