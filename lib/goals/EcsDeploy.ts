@@ -8,16 +8,12 @@ import {
     DeployableArtifact,
     Deployer,
     Deployment,
-    ExecuteGoal,
-    ExecuteGoalResult,
     FulfillableGoalDetails,
     FulfillableGoalWithRegistrations,
     FulfillmentRegistration,
     getGoalDefinitionFrom,
     Goal,
     GoalDefinition,
-    GoalDetails,
-    GoalInvocation,
     Implementation,
     IndependentOfEnvironment,
     ProgressLog,
@@ -26,7 +22,9 @@ import {
 } from "@atomist/sdm";
 import { EC2, ECS } from "aws-sdk";
 import _ = require("lodash");
+import { executeEcsDeploy } from "../deploy/ecsApi";
 import { ecsDataCallback } from "../support/ecsDataCallback";
+import { createUpdateServiceRequest } from "../support/ecsServiceRequest";
 
 const EcsGoalDefinition: GoalDefinition = {
     displayName: "deploying to ECS",
@@ -78,84 +76,12 @@ export class EcsDeploy extends FulfillableGoalWithRegistrations<EcsDeployRegistr
     }
 }
 
-// Execute an ECS deploy
-//  *IF there is a task partion task definition, inject
-export function executeEcsDeploy(): ExecuteGoal {
-    return async (goalInvocation: GoalInvocation): Promise<ExecuteGoalResult> => {
-        const {sdmGoal, credentials, id, progressLog, configuration} = goalInvocation;
-
-        const goalData = JSON.parse(sdmGoal.data);
-
-        logger.info("Deploying project %s:%s to ECS in %s]", id.owner, id.repo, goalData.serviceRequest.cluster);
-
-        const image: DeployableArtifact = {
-            name: sdmGoal.repo.name,
-            version: sdmGoal.push.after.sha,
-            filename: sdmGoal.push.after.image.imageName,
-            id,
-        };
-
-        const deployInfo = {
-            name: sdmGoal.repo.name,
-            description: sdmGoal.name,
-            ...goalData.serviceRequest,
-        };
-
-        const deployments = await new EcsDeployer(configuration.sdm.projectLoader).deploy(
-            image,
-            deployInfo,
-            progressLog,
-            credentials,
-        );
-
-        const results = await Promise.all(deployments.map(deployment => {
-            logger.debug(`Endpoint details: ${JSON.stringify(deployment.externalUrls)}`);
-            const endpoints: GoalDetails["externalUrls"] = [];
-            deployment.externalUrls.map( e => {
-                endpoints.push({url: e});
-            });
-
-            logger.debug(`Endpoint details for ${deployment.projectName}: ${JSON.stringify(endpoints)}`);
-
-            // tslint:disable-next-line:no-object-literal-type-assertion
-            return {
-                code: 0,
-                externalUrls: endpoints,
-            } as ExecuteGoalResult;
-        }));
-
-        return _.head(results);
-    };
-}
-
 export interface EcsDeploymentInfo extends TargetInfo, ECS.Types.CreateServiceRequest {}
 
 export interface EcsDeployment extends Deployment {
     clusterName: string;
     projectName: string;
     externalUrls?: string[];
-}
-
-// This function converts a CreateServiceRequest to an UpdateServiceRequest
-// tslint:disable-next-line:cyclomatic-complexity
-export async function createUpdateServiceRequest(params: ECS.Types.CreateServiceRequest): Promise<ECS.Types.UpdateServiceRequest> {
-    return {
-        service: params.serviceName,                // Required
-        taskDefinition: params.taskDefinition,      // Required
-        forceNewDeployment: true,                   // Required
-        cluster: params.hasOwnProperty("cluster") && params.cluster ? params.cluster : undefined,
-        desiredCount: params.hasOwnProperty("desiredCount")
-            && params.desiredCount ? params.desiredCount : undefined,
-        deploymentConfiguration: params.hasOwnProperty("deploymentConfiguration")
-            && params.deploymentConfiguration ? params.deploymentConfiguration : undefined,
-        networkConfiguration: params.hasOwnProperty("networkConfiguration")
-            && params.networkConfiguration ? params.networkConfiguration : undefined,
-        platformVersion: params.hasOwnProperty("platformVersion")
-            && params.platformVersion ? params.platformVersion : undefined,
-        healthCheckGracePeriodSeconds: params.hasOwnProperty("healthCheckGracePeriodSeconds")
-            && params.healthCheckGracePeriodSeconds
-                ? params.healthCheckGracePeriodSeconds : undefined,
-    };
 }
 
 // tslint:disable-next-line:max-classes-per-file
