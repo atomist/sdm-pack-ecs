@@ -1,4 +1,4 @@
-import { logger } from "@atomist/automation-client";
+import { configurationValue, logger } from "@atomist/automation-client";
 import { RepoContext, SdmGoalEvent} from "@atomist/sdm";
 import { ECS } from "aws-sdk";
 import { createEcsSession } from "../EcsSupport";
@@ -83,6 +83,8 @@ export function ecsDataCallback(
                     k.cpu = k.hasOwnProperty("cpu") && k.cpu ? k.cpu : 256;
                 });
             }
+
+            // Populate service request
 
             // Retrieve existing Task definitions, if we find a matching revision - use that
             //  otherwise create a new task definition

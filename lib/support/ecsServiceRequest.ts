@@ -1,4 +1,5 @@
-import { EC2, ECS } from "aws-sdk";
+import { configurationValue } from "@atomist/automation-client";
+import { EC2, ECS, ECSCredentials } from "aws-sdk";
 
 // This function converts a CreateServiceRequest to an UpdateServiceRequest
 // tslint:disable-next-line:cyclomatic-complexity
@@ -19,5 +20,22 @@ export async function createUpdateServiceRequest(params: ECS.Types.CreateService
         healthCheckGracePeriodSeconds: params.hasOwnProperty("healthCheckGracePeriodSeconds")
             && params.healthCheckGracePeriodSeconds
                 ? params.healthCheckGracePeriodSeconds : undefined,
+    };
+}
+
+// This function takes a partial serviceRequest and populates enough to make it valid
+// using the defaults supplied in client config
+// tslint:disable-next-line:cyclomatic-complexity
+export async function createValidServiceRequest(request: Partial<ECS.Types.CreateServiceRequest>): Promise<Partial<ECS.Types.CreateServiceRequest>> {
+    return {
+        serviceName: request.hasOwnProperty("serviceName") && request.serviceName ? request.serviceName : undefined,
+        launchType: request.hasOwnProperty("launchType") && request.launchType
+            ? request.launchType : configurationValue<string>("sdm.aws.ecs.default.launch_type"),
+        cluster: request.hasOwnProperty("cluster") && request.cluster
+            ? request.cluster : configurationValue<string>("sdm.aws.ecs.default.cluster"),
+        desiredCount: request.hasOwnProperty("desiredCount") && request.desiredCount
+            ? request.desiredCount : 1,
+        networkConfiguration: request.hasOwnProperty("networkConfiguration") && request.networkConfiguration
+            ? request.networkConfiguration : configurationValue<any>("sdm.aws.ecs.default.networkConfiguration"),
     };
 }

@@ -1,7 +1,7 @@
 import { logger } from "@atomist/automation-client";
 import { DeployableArtifact, ExecuteGoal, ExecuteGoalResult, GoalDetails, GoalInvocation } from "@atomist/sdm";
 import _ = require("lodash");
-import { EcsDeployer } from "../goals/EcsDeploy";
+import { EcsDeployer, EcsDeploymentInfo } from "../goals/EcsDeploy";
 
 // Execute an ECS deploy
 //  *IF there is a task partion task definition, inject
@@ -20,9 +20,10 @@ export function executeEcsDeploy(): ExecuteGoal {
             id,
         };
 
-        const deployInfo = {
+        const deployInfo: EcsDeploymentInfo = {
             name: sdmGoal.repo.name,
             description: sdmGoal.name,
+            region: _.get(sdmGoal.data, "region"),
             ...goalData.serviceRequest,
         };
 
