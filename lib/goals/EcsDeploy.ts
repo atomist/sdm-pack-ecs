@@ -228,6 +228,30 @@ export class EcsDeployer implements Deployer<EcsDeploymentInfo, EcsDeployment> {
         })];
     }
 
+    public async getTaskEndpoint(ec2: EC2, taskDef: ECS.TaskDefinition, tasks: ECS.Task[]): Promise<string[]> {
+        return new Promise<string[]>((resolve, reject) => {
+            return tasks.map( async t => {
+                    // Get the EIN for this interface
+                    const ein = t.attachments[0].details[1].value;
+
+                    // Lookup the network interface by EIN
+                    const interfaceData = await ec2.describeNetworkInterfaces({ NetworkInterfaceIds: [ ein ]}).promise();
+
+                    // If there is a public IP assigned, pull out the data
+                    if (interfaceData.NetworkInterfaces[0].Association.PublicIp) {
+                            const publicIp = interfaceData.NetworkInterfaces[0].Association.PublicIp;
+                            // For each container, build the endpoint URL
+                            // Return the resulting map of urls
+                            taskDef.containerDefinitions.map( c => {
+                                    const proto = c.portMappings[0].protocol;
+                                    const port = c.portMappings[0].hostPort;
+                                    return(`${proto}://${publicIp}:${port}`);
+                            });
+                    }
+            });
+        });
+    }
+
     public async getEndpointData(
         definition: ECS.Types.UpdateServiceRequest | ECS.Types.CreateServiceRequest,
         data: ECS.Types.UpdateServiceResponse | ECS.Types.CreateServiceResponse,
@@ -251,29 +275,9 @@ export class EcsDeployer implements Deployer<EcsDeploymentInfo, EcsDeployment> {
                 const matchingTasks = await ecs.describeTasks({ tasks: arns.taskArns, cluster: definition.cluster }).promise();
 
                 // For each tasks, pull out the network interface EIN
-                resolve (
-                    await new Promise<string[]> ((res, rej) => {
-                        matchingTasks.tasks.map( async t => {
-                        // Get the EIN for this interface
-                        const ein = t.attachments[0].details[1].value;
-
-                        // Lookup the network interface by EIN
-                        const interfaceData = await ec2.describeNetworkInterfaces({ NetworkInterfaceIds: [ ein ]}).promise();
-
-                        // If there is a public IP assigned, pull out the data
-                        if (interfaceData.NetworkInterfaces[0].Association.PublicIp) {
-                                const publicIp = interfaceData.NetworkInterfaces[0].Association.PublicIp;
-                                // For each container, build the endpoint URL
-                                // Return the resulting map of urls
-                                taskDef.containerDefinitions.map( c => {
-                                        const proto = c.portMappings[0].protocol;
-                                        const port = c.portMappings[0].hostPort;
-                                        return(`${proto}://${publicIp}:${port}`);
-                                });
-                        }
-                        });
-                    }),
-                );
+                const result = await this.getTaskEndpoint(ec2, taskDef, matchingTasks.tasks);
+                logger.debug(`Endpoint data ${JSON.stringify(result)}`);
+                resolve(result);
             } catch (error) {
                 logger.error(error);
                 reject(error);
