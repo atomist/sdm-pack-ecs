@@ -16,6 +16,7 @@
 
 import { configurationValue } from "@atomist/automation-client";
 import {
+    ConfigurationValueType,
     ExtensionPack,
     metadata,
 } from "@atomist/sdm";
@@ -30,7 +31,7 @@ export function ecsSupport(): ExtensionPack {
             "sdm.aws.ecs.default.cluster",
             "sdm.aws.accessKey",
             "sdm.aws.secretKey",
-            // {path: "sdm.aws.ecs.default.desiredCount", type: ConfigurationValueType.Number}, (blocked by sdm/#578)
+            {path: "sdm.aws.ecs.default.desiredCount", type: ConfigurationValueType.Number},
         ],
         configure: sdm => {
             // TODO: Create service/task def files transform
