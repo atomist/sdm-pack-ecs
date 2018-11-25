@@ -67,6 +67,12 @@ export function ecsDataCallback(
                     taskDefinition: `${goodTaskDefinition.family}:${goodTaskDefinition.revision}`,
                 };
 
+                logger.debug(`Log sdmGoal data: ${JSON.stringify({
+                    serviceRequest: newServiceRequest,
+                    taskDefinition: goodTaskDefinition,
+                    region: registration.region,
+                })}`);
+
                 return {
                     ...sdmGoal,
                     data: JSON.stringify({
