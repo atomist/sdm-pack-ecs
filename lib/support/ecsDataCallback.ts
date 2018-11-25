@@ -15,68 +15,62 @@ export function ecsDataCallback(
         return ecsDeploy.sdm.configuration.sdm.projectLoader.doWithProject({
             credentials: ctx.credentials, id: ctx.id, context: ctx.context, readOnly: true,
         }, async p => {
+            // Merge task definition configurations together - SDM Goal registration and in project
+            //   in-project wins
+            const newTaskDef = await getFinalTaskDefinition(p, sdmGoal, registration);
 
-            try {
-                // Merge task definition configurations together - SDM Goal registration and in project
-                //   in-project wins
-                const newTaskDef = await getFinalTaskDefinition(p, sdmGoal, registration);
+            // Populate service request
+            //   Load any in project config and merge with default generated; in project wins
+            const tempServiceRequest = await createValidServiceRequest(registration.serviceRequest);
+            const inProjectSr = await readEcsServiceSpec(p, "service.json");
+            const validServiceRequest = {...tempServiceRequest, ...inProjectSr};
 
-                // Populate service request
-                //   Load any in project config and merge with default generated; in project wins
-                const tempServiceRequest = await createValidServiceRequest(registration.serviceRequest);
-                const inProjectSr = await readEcsServiceSpec(p, "service.json");
-                const validServiceRequest = {...tempServiceRequest, ...inProjectSr};
+            // Retrieve existing Task definitions, if we find a matching revision - use that
+            //  otherwise create a new task definition
+            const ecs = createEcsSession(registration.region);
 
-                // Retrieve existing Task definitions, if we find a matching revision - use that
-                //  otherwise create a new task definition
-                const ecs = createEcsSession(registration.region);
+            // Pull latest def info & compare it to the latest
+            let goodTaskDefinition: ECS.Types.TaskDefinition;
+            const taskDefs = await ecsListTaskDefinitions(ecs, newTaskDef.family);
+            let latestRev;
+            await ecsGetTaskDefinition(ecs, taskDefs.pop())
+                .then(v => {
+                    latestRev = v;
+                })
+                .catch(() => {
+                    logger.debug(`No task definitions found for ${newTaskDef.family}`);
+                });
 
-                // Pull latest def info & compare it to the latest
-                let goodTaskDefinition: ECS.Types.TaskDefinition;
-                const taskDefs = await ecsListTaskDefinitions(ecs, newTaskDef.family);
-                let latestRev;
-                await ecsGetTaskDefinition(ecs, taskDefs.pop())
-                    .then(v => {
-                        latestRev = v;
-                    })
-                    .catch(() => {
-                        logger.debug(`No task definitions found for ${newTaskDef.family}`);
-                    });
-
-                // Compare latest def to new def
-                // - if they differ create a new revision
-                // - if they don't use the existing rev
-                if (latestRev && !cmpSuppliedTaskDefinition(latestRev, newTaskDef)) {
-                    goodTaskDefinition = await ecsRegisterTask(ecs, newTaskDef);
-                } else if (!latestRev) {
-                    goodTaskDefinition = await ecsRegisterTask(ecs, newTaskDef);
-                } else {
-                    goodTaskDefinition = latestRev;
-                }
-
-                // IF there is a local definition (ie in-project configuration) override the values found here
-                // TODO
-
-                // Update Service Request with up to date task definition
-                let newServiceRequest: ECS.Types.CreateServiceRequest;
-                newServiceRequest = {
-                    ...validServiceRequest,
-                    serviceName: validServiceRequest.serviceName ? validServiceRequest.serviceName : sdmGoal.repo.name,
-                    taskDefinition: `${goodTaskDefinition.family}:${goodTaskDefinition.revision}`,
-                };
-
-                return {
-                    ...sdmGoal,
-                    data: JSON.stringify({
-                        serviceRequest: newServiceRequest,
-                        taskDefinition: goodTaskDefinition,
-                        region: registration.region,
-                    }),
-                };
-            } catch (error) {
-                logger.error(error);
-                throw new Error(error);
+            // Compare latest def to new def
+            // - if they differ create a new revision
+            // - if they don't use the existing rev
+            if (latestRev && !cmpSuppliedTaskDefinition(latestRev, newTaskDef)) {
+                goodTaskDefinition = await ecsRegisterTask(ecs, newTaskDef);
+            } else if (!latestRev) {
+                goodTaskDefinition = await ecsRegisterTask(ecs, newTaskDef);
+            } else {
+                goodTaskDefinition = latestRev;
             }
+
+            // IF there is a local definition (ie in-project configuration) override the values found here
+            // TODO
+
+            // Update Service Request with up to date task definition
+            let newServiceRequest: ECS.Types.CreateServiceRequest;
+            newServiceRequest = {
+                ...validServiceRequest,
+                serviceName: validServiceRequest.serviceName ? validServiceRequest.serviceName : sdmGoal.repo.name,
+                taskDefinition: `${goodTaskDefinition.family}:${goodTaskDefinition.revision}`,
+            };
+
+            return {
+                ...sdmGoal,
+                data: JSON.stringify({
+                    serviceRequest: newServiceRequest,
+                    taskDefinition: goodTaskDefinition,
+                    region: registration.region,
+                }),
+            };
         });
 
     };
