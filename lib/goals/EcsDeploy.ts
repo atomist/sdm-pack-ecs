@@ -41,7 +41,7 @@ const EcsGoalDefinition: GoalDefinition = {
 };
 
 export interface EcsDeployRegistration extends FulfillmentRegistration {
-    serviceRequest: Partial<ECS.Types.CreateServiceRequest>;
+    serviceRequest?: Partial<ECS.Types.CreateServiceRequest>;
     taskDefinition?: ECS.Types.RegisterTaskDefinitionRequest;
     externalUrls?: string[];
     region: string;
