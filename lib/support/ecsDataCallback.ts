@@ -22,7 +22,10 @@ export function ecsDataCallback(
 
                 // Populate service request
                 //   Load any in project config and merge with default generated; in project wins
-                const tempServiceRequest = await createValidServiceRequest(registration.serviceRequest);
+                const tempServiceRequest = await createValidServiceRequest(
+                    registration.hasOwnProperty("registration")
+                        && registration.serviceRequest ? registration.serviceRequest : {},
+                );
                 const inProjectSr = await readEcsServiceSpec(p, "service.json");
                 const validServiceRequest = {...tempServiceRequest, ...inProjectSr};
 
