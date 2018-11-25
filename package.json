@@ -1,6 +1,6 @@
 {
   "name": "@ipcrmdemo/sdm-pack-ecs",
-  "version": "0.1.2-master.1543153945",
+  "version": "0.1.2-master.1543153946",
   "description": "SDM Pack ECS",
   "author": "ipcrm",
   "license": "Apache-2.0",
@@ -28,12 +28,12 @@
   },
   "peerDependencies": {
     "@atomist/automation-client": "*",
-    "@atomist/sdm": "*",
+    "@atomist/sdm": ">=1.1.0-master.20181124172708",
     "@atomist/sdm-core": "*"
   },
   "devDependencies": {
     "@atomist/automation-client": "1.0.1",
-    "@atomist/sdm": "1.0.1",
+    "@atomist/sdm": "^1.1.0-master.20181124172708",
     "@atomist/sdm-core": "1.0.2",
     "@types/mocha": "^5.2.5",
     "@types/power-assert": "^1.5.0",
