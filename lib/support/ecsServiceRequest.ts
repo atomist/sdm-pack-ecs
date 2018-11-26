@@ -34,7 +34,7 @@ export async function createValidServiceRequest(request: Partial<ECS.Types.Creat
         cluster: request.hasOwnProperty("cluster") && request.cluster
             ? request.cluster : configurationValue<string>("sdm.aws.ecs.default.cluster"),
         desiredCount: request.hasOwnProperty("desiredCount") && request.desiredCount
-            ? request.desiredCount : 1,
+            ? request.desiredCount : configurationValue<number>("sdm.aws.ecs.default.desiredCount"),
         networkConfiguration: request.hasOwnProperty("networkConfiguration") && request.networkConfiguration
             ? request.networkConfiguration : configurationValue<any>("sdm.aws.ecs.default.networkConfiguration"),
     };

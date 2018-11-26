@@ -22,14 +22,16 @@
   "main": "./index.js",
   "types": "./index.d.ts",
   "dependencies": {
-    "lodash": "^4.17.10",
     "aws-sdk": "^2.353.0",
-    "docker-file-parser": "^1.0.4"
+    "docker-file-parser": "^1.0.4",
+    "lodash": "^4.17.10",
+    "ts-mock-imports": "^1.2.2"
   },
   "peerDependencies": {
     "@atomist/automation-client": "*",
     "@atomist/sdm": ">=1.1.0-master.20181124172708",
-    "@atomist/sdm-core": "*"
+    "@atomist/sdm-core": "*",
+    "sinon": ">= 4.1.2"
   },
   "devDependencies": {
     "@atomist/automation-client": "1.0.1",
