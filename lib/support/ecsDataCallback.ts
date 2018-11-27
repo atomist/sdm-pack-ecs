@@ -47,12 +47,12 @@ export function ecsDataCallback(
             // Compare latest def to new def
             // - if they differ create a new revision
             // - if they don't use the existing rev
-            if (latestRev !== null && !cmpSuppliedTaskDefinition(newTaskDef, latestRev)) {
-                goodTaskDefinition = await ecsRegisterTask(ecs, newTaskDef);
-            } else if (!latestRev) {
-                goodTaskDefinition = await ecsRegisterTask(ecs, newTaskDef);
-            } else {
+            if (cmpSuppliedTaskDefinition(newTaskDef, latestRev)) {
+                logger.debug(`Latest Task Def: ${JSON.stringify(latestRev)}`);
+                logger.debug(`New Task Def: ${JSON.stringify(latestRev)}`);
                 goodTaskDefinition = latestRev;
+            } else {
+                goodTaskDefinition = await ecsRegisterTask(ecs, newTaskDef);
             }
 
             // IF there is a local definition (ie in-project configuration) override the values found here
