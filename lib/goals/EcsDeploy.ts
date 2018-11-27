@@ -223,9 +223,14 @@ export class EcsDeployer implements Deployer<EcsDeploymentInfo, EcsDeployment> {
                 const matchingTasks = await ecs.describeTasks({ tasks: arns.taskArns, cluster: definition.cluster }).promise();
 
                 // For each tasks, pull out the network interface EIN
-                const result = await this.getTaskEndpoint(ec2, taskDef, matchingTasks.tasks);
-                logger.debug(`Endpoint data ${JSON.stringify(result)}`);
-                resolve(result);
+                if (_.get(data, "service.networkConfiguration.awsvpcConfiguration.assignPublicIp")) {
+                    const result = await this.getTaskEndpoint(ec2, taskDef, matchingTasks.tasks);
+                    logger.debug(`Endpoint data ${JSON.stringify(result)}`);
+                    resolve(result);
+                } else {
+                    logger.debug("No Public IP Configured");
+                    resolve([]);
+                }
             } catch (error) {
                 logger.error(error);
                 reject(error);
