@@ -47,9 +47,9 @@ export function ecsDataCallback(
             // Compare latest def to new def
             // - if they differ create a new revision
             // - if they don't use the existing rev
+            logger.debug(`Latest Task Def: ${JSON.stringify(latestRev)}`);
+            logger.debug(`New Task Def: ${JSON.stringify(latestRev)}`);
             if (cmpSuppliedTaskDefinition(newTaskDef, latestRev)) {
-                logger.debug(`Latest Task Def: ${JSON.stringify(latestRev)}`);
-                logger.debug(`New Task Def: ${JSON.stringify(latestRev)}`);
                 goodTaskDefinition = latestRev;
             } else {
                 goodTaskDefinition = await ecsRegisterTask(ecs, newTaskDef);
