@@ -48,15 +48,14 @@ export function ecsDataCallback(
             // - if they differ create a new revision
             // - if they don't use the existing rev
             logger.debug(`Latest Task Def: ${JSON.stringify(latestRev)}`);
-            logger.debug(`New Task Def: ${JSON.stringify(latestRev)}`);
+            logger.debug(`New Task Def: ${JSON.stringify(newTaskDef)}`);
             if (cmpSuppliedTaskDefinition(newTaskDef, latestRev)) {
+                logger.debug(`Using existing task definition: ${latestRev}`);
                 goodTaskDefinition = latestRev;
             } else {
                 goodTaskDefinition = await ecsRegisterTask(ecs, newTaskDef);
+                logger.debug(`Created new task definition: ${goodTaskDefinition}`);
             }
-
-            // IF there is a local definition (ie in-project configuration) override the values found here
-            // TODO
 
             // Update Service Request with up to date task definition
             let newServiceRequest: ECS.Types.CreateServiceRequest;
