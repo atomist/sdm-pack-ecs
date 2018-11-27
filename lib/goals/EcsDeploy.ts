@@ -10,11 +10,11 @@ import {
     Deployment,
     FulfillableGoalDetails,
     FulfillableGoalWithRegistrations,
-    FulfillmentRegistration,
     getGoalDefinitionFrom,
     Goal,
     GoalDefinition,
     Implementation,
+    ImplementationRegistration,
     IndependentOfEnvironment,
     ProgressLog,
     ProjectLoader,
@@ -40,7 +40,7 @@ const EcsGoalDefinition: GoalDefinition = {
     canceledDescription: "Deployment to ECS cancelled",
 };
 
-export interface EcsDeployRegistration extends FulfillmentRegistration {
+export interface EcsDeployRegistration extends Partial<ImplementationRegistration> {
     serviceRequest?: Partial<ECS.Types.CreateServiceRequest>;
     taskDefinition?: ECS.Types.RegisterTaskDefinitionRequest;
     externalUrls?: string[];
