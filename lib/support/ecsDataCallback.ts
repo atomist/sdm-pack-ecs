@@ -47,7 +47,7 @@ export function ecsDataCallback(
             // Compare latest def to new def
             // - if they differ create a new revision
             // - if they don't use the existing rev
-            if (latestRev && !cmpSuppliedTaskDefinition(latestRev, newTaskDef)) {
+            if (latestRev !== null && !cmpSuppliedTaskDefinition(newTaskDef, latestRev)) {
                 goodTaskDefinition = await ecsRegisterTask(ecs, newTaskDef);
             } else if (!latestRev) {
                 goodTaskDefinition = await ecsRegisterTask(ecs, newTaskDef);
