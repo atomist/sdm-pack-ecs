@@ -173,15 +173,15 @@ export class EcsDeployer implements Deployer<EcsDeploymentInfo, EcsDeployment> {
                         const interfaceData = await ec2.describeNetworkInterfaces({ NetworkInterfaceIds: [ ein ]}).promise();
 
                         // If there is a public IP assigned, pull out the data
-                        if (interfaceData.NetworkInterfaces[0].Association.PublicIp) {
-                                const publicIp = interfaceData.NetworkInterfaces[0].Association.PublicIp;
-                                // For each task, build the endpoint URL
-                                //   This is only valuable for single container tasks - any more then that the data becomes
-                                //   useless b/c there is too many endpoints; you have to use service discovery
-                                const proto = taskDef.containerDefinitions[0].portMappings[0].protocol;
-                                const port = taskDef.containerDefinitions[0].portMappings[0].hostPort;
-                                return(`${proto}://${publicIp}:${port}`);
-                        } else {
+                        try {
+                            const publicIp = interfaceData.NetworkInterfaces[0].Association.PublicIp;
+                            // For each task, build the endpoint URL
+                            //   This is only valuable for single container tasks - any more then that the data becomes
+                            //   useless b/c there is too many endpoints; you have to use service discovery
+                            const proto = taskDef.containerDefinitions[0].portMappings[0].protocol;
+                            const port = taskDef.containerDefinitions[0].portMappings[0].hostPort;
+                            return(`${proto}://${publicIp}:${port}`);
+                        } catch (error) {
                             return undefined;
                         }
                 });
@@ -223,7 +223,7 @@ export class EcsDeployer implements Deployer<EcsDeploymentInfo, EcsDeployment> {
                 const matchingTasks = await ecs.describeTasks({ tasks: arns.taskArns, cluster: definition.cluster }).promise();
 
                 // For each tasks, pull out the network interface EIN
-                try { 
+                try {
                     const result = await this.getTaskEndpoint(ec2, taskDef, matchingTasks.tasks);
                     logger.debug(`Endpoint data ${JSON.stringify(result)}`);
                     resolve(result);
