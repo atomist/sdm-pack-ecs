@@ -62,6 +62,7 @@ export async function ecsRegisterTask(
 //  matches an existing task definion revision
 export function cmpSuppliedTaskDefinition(obj1: any, obj2: any): boolean {
     let notEqualCount = 0;
+
     Object.keys(obj1).forEach( k => {
       if ( obj2.hasOwnProperty(k)) {
         if (typeof(obj1[k]) === "object") {
@@ -75,8 +76,6 @@ export function cmpSuppliedTaskDefinition(obj1: any, obj2: any): boolean {
               notEqualCount += 1;
             }
         }
-      } else {
-          notEqualCount += 1;
       }
     });
     return notEqualCount > 0 ? false : true;
