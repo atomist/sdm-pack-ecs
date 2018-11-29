@@ -49,7 +49,7 @@ export function ecsDataCallback(
             // - if they don't use the existing rev
             logger.debug(`Latest Task Def: ${JSON.stringify(latestRev)}`);
             logger.debug(`New Task Def: ${JSON.stringify(newTaskDef)}`);
-            if (cmpSuppliedTaskDefinition(newTaskDef, latestRev)) {
+            if (latestRev !== undefined && cmpSuppliedTaskDefinition(newTaskDef, latestRev)) {
                 logger.debug(`Using existing task definition: ${latestRev}`);
                 goodTaskDefinition = latestRev;
             } else {
