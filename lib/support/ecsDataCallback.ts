@@ -43,13 +43,6 @@ export function ecsDataCallback(
             await ecsGetTaskDefinition(ecs, taskDefs.pop())
                 .then(v => {
                     latestRev = v.taskDefinition;
-
-                    // Re-write latest rev to use latest img for compare purposes (it gets updated automatically)
-                    latestRev.containerDefinitions.forEach( k => {
-                        if (getImageString(sdmGoal) === k.name) {
-                            k.image = sdmGoal.push.after.image.imageName;
-                        }
-                    });
                 })
                 .catch(() => {
                     logger.debug(`No task definitions found for ${newTaskDef.family}`);
