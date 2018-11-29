@@ -166,7 +166,7 @@ export async function getFinalTaskDefinition(
                     newTaskDef.requiresCompatibilities = [ "FARGATE"];
                     newTaskDef.networkMode = "awsvpc";
                     newTaskDef.cpu = "256",
-                    newTaskDef.memory = "0.5GB",
+                    newTaskDef.memory = "512",
 
                     newTaskDef.containerDefinitions = [
                         {
@@ -201,7 +201,7 @@ export async function getFinalTaskDefinition(
                         k.image = sdmGoal.push.after.image.imageName;
                     }
                     // TODO: Expose the defaults below in client.config.json
-                    k.memory = k.hasOwnProperty("memory") && k.memory ? k.memory : 1024;
+                    k.memory = k.hasOwnProperty("memory") && k.memory ? k.memory : 512;
                     k.cpu = k.hasOwnProperty("cpu") && k.cpu ? k.cpu : 256;
                 });
                 resolve(newTaskDef);
