@@ -7,6 +7,10 @@ import { EcsDeploy, EcsDeployRegistration } from "../goals/EcsDeploy";
 import { createValidServiceRequest } from "./ecsServiceRequest";
 import { cmpSuppliedTaskDefinition, ecsGetTaskDefinition, ecsListTaskDefinitions, ecsRegisterTask } from "./taskDefs";
 
+export function getImageString(sdmGoal: SdmGoalEvent): string {
+    return sdmGoal.push.after.image.imageName.split("/").pop().split(":")[0];
+}
+
 export function ecsDataCallback(
     ecsDeploy: EcsDeploy,
     registration: EcsDeployRegistration,
@@ -39,6 +43,13 @@ export function ecsDataCallback(
             await ecsGetTaskDefinition(ecs, taskDefs.pop())
                 .then(v => {
                     latestRev = v.taskDefinition;
+
+                    // Re-write latest rev to use latest img for compare purposes (it gets updated automatically)
+                    latestRev.containerDefinitions.forEach( k => {
+                        if (getImageString(sdmGoal) === k.name) {
+                            k.image = sdmGoal.push.after.image.imageName;
+                        }
+                    });
                 })
                 .catch(() => {
                     logger.debug(`No task definitions found for ${newTaskDef.family}`);
@@ -123,7 +134,7 @@ export async function getFinalTaskDefinition(
         return new Promise<ECS.Types.RegisterTaskDefinitionRequest>(async (resolve, reject) => {
             // Set image string, example source value:
             //  <registry>/<author>/<image>:<version>"
-            const imageString = sdmGoal.push.after.image.imageName.split("/").pop().split(":")[0];
+            const imageString = getImageString(sdmGoal);
 
             // Create or Update a task definition
             // Check for passed taskdefinition info, and update the container field
