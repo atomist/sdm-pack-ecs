@@ -38,7 +38,7 @@ export function ecsDataCallback(
             let latestRev;
             await ecsGetTaskDefinition(ecs, taskDefs.pop())
                 .then(v => {
-                    latestRev = v;
+                    latestRev = v.taskDefinition;
                 })
                 .catch(() => {
                     logger.debug(`No task definitions found for ${newTaskDef.family}`);
