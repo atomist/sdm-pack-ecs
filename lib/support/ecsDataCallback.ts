@@ -180,8 +180,8 @@ export async function getFinalTaskDefinition(
                             },
                             image: sdmGoal.push.after.image.imageName,
                             portMappings: [{
-                                containerPort: exposeCommands[0].args[0],
-                                hostPort: exposeCommands[0].args[0],
+                                containerPort: parseInt(exposeCommands[0].args[0], 10),
+                                hostPort: parseInt(exposeCommands[0].args[0], 10),
                             }],
                         },
                     ];
