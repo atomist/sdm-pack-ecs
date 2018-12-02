@@ -147,7 +147,7 @@ export async function getFinalTaskDefinition(
                             const d = await p.getFile("Dockerfile");
                             dockerFile = await d.getContent();
                 } else {
-                    throw Error("No task definition present and no dockerfile found!");
+                    reject("No task definition present and no dockerfile found!");
                 }
 
                 // Get Docker commands out
@@ -156,11 +156,11 @@ export async function getFinalTaskDefinition(
                 const commands = parser.parse(dockerFile, options);
                 const exposeCommands = commands.filter((c: any) => c.name === "EXPOSE");
 
-                if (exposeCommands.length > 1) {
-                    throw new Error(`Unable to determine port for default ingress. Dockerfile in project ` +
+                if (exposeCommands.length !== 1) {
+                    reject(`Unable to determine port for default ingress. Dockerfile in project ` +
                         `'${sdmGoal.repo.owner}/${sdmGoal.repo.name}' has more then one EXPOSE instruction: ` +
                         exposeCommands.map((c: any) => c.args).join(", "));
-                } else if (exposeCommands.length === 1) {
+                } else {
                     newTaskDef.family = imageString;
                     // TODO: Expose the defaults below in client.config.json
                     newTaskDef.requiresCompatibilities = [ "FARGATE"];

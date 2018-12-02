@@ -1,8 +1,5 @@
-import { configureLogging, MinimalLogging } from "@atomist/automation-client";
 import * as assert from "assert";
 import { cmpSuppliedTaskDefinition } from "../../lib/support/taskDefs";
-
-configureLogging(MinimalLogging);
 
 describe("cmpSuppliedTaskDefinition", () => {
     describe("compare two identical objects", () => {
