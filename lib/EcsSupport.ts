@@ -27,11 +27,10 @@ export function ecsSupport(): ExtensionPack {
     return {
         ...metadata(),
         requiredConfigurationValues: [
-            "sdm.aws.ecs.default.launch_type",
-            "sdm.aws.ecs.default.cluster",
+            "sdm.aws.ecs.launch_type",
             "sdm.aws.accessKey",
             "sdm.aws.secretKey",
-            {path: "sdm.aws.ecs.default.desiredCount", type: ConfigurationValueType.Number},
+            {path: "sdm.aws.ecs.desiredCount", type: ConfigurationValueType.Number},
         ],
         configure: sdm => {
             // TODO: Create service/task def files transform

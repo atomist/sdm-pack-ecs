@@ -30,12 +30,12 @@ export async function createValidServiceRequest(request: Partial<ECS.Types.Creat
     return {
         serviceName: request.hasOwnProperty("serviceName") && request.serviceName ? request.serviceName : undefined,
         launchType: request.hasOwnProperty("launchType") && request.launchType
-            ? request.launchType : configurationValue<string>("sdm.aws.ecs.default.launch_type"),
+            ? request.launchType : configurationValue<string>("sdm.aws.ecs.launch_type"),
         cluster: request.hasOwnProperty("cluster") && request.cluster
-            ? request.cluster : configurationValue<string>("sdm.aws.ecs.default.cluster"),
+            ? request.cluster : configurationValue<string>("sdm.aws.ecs.cluster"),
         desiredCount: request.hasOwnProperty("desiredCount") && request.desiredCount
-            ? request.desiredCount : configurationValue<number>("sdm.aws.ecs.default.desiredCount"),
+            ? request.desiredCount : configurationValue<number>("sdm.aws.ecs.desiredCount"),
         networkConfiguration: request.hasOwnProperty("networkConfiguration") && request.networkConfiguration
-            ? request.networkConfiguration : configurationValue<any>("sdm.aws.ecs.default.networkConfiguration"),
+            ? request.networkConfiguration : configurationValue<any>("sdm.aws.ecs.networkConfiguration"),
     };
 }

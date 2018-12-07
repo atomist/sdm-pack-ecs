@@ -55,16 +55,14 @@ describe("createValidServiceRequest", () => {
                     sdm: {
                         aws: {
                             ecs: {
-                                default: {
-                                    launch_type: "FARGATE",
-                                    cluster: "tutorial",
-                                    desiredCount: 3,
-                                    networkConfiguration: {
-                                        awsvpcConfiguration: {
-                                            subnets: ["subnet-02ddf34bfe7f6c19a", "subnet-0c5bfb43a631bee45"],
-                                            securityGroups: ["sg-0959d9866b23698f2"],
-                                            assignPublicIp: "ENABLED",
-                                        },
+                                launch_type: "FARGATE",
+                                cluster: "tutorial",
+                                desiredCount: 3,
+                                networkConfiguration: {
+                                    awsvpcConfiguration: {
+                                        subnets: ["subnet-02ddf34bfe7f6c19a", "subnet-0c5bfb43a631bee45"],
+                                        securityGroups: ["sg-0959d9866b23698f2"],
+                                        assignPublicIp: "ENABLED",
                                     },
                                 },
                             },
