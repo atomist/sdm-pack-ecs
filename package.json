@@ -1,6 +1,6 @@
 {
   "name": "@ipcrmdemo/sdm-pack-ecs",
-  "version": "0.1.2-master.1543514075",
+  "version": "0.1.2-master.1544146794",
   "description": "SDM Pack ECS",
   "author": "ipcrm",
   "license": "Apache-2.0",
@@ -24,8 +24,7 @@
   "dependencies": {
     "aws-sdk": "^2.353.0",
     "docker-file-parser": "^1.0.4",
-    "lodash": "^4.17.10",
-    "ts-mock-imports": "^1.2.2"
+    "lodash": "^4.17.10"
   },
   "peerDependencies": {
     "@atomist/automation-client": "*",
