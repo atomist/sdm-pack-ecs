@@ -9,6 +9,14 @@ export function executeEcsDeploy(): ExecuteGoal {
     return async (goalInvocation: GoalInvocation): Promise<ExecuteGoalResult> => {
         const {sdmGoal, credentials, id, progressLog, configuration} = goalInvocation;
 
+        // Validate image goal is present
+        if (!sdmGoal.push.after.images ||
+            sdmGoal.push.after.images.length < 1) {
+            const msg = `ECS deploy requested but that commit has no Docker image: ${JSON.stringify(sdmGoal)}`;
+            logger.error(msg);
+            return { code: 1, message: msg };
+        }
+
         const goalData = JSON.parse(sdmGoal.data);
 
         logger.info("Deploying project %s:%s to ECS in %s]", id.owner, id.repo, goalData.serviceRequest.cluster);
