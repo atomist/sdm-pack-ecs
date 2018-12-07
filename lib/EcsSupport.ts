@@ -28,9 +28,12 @@ export function ecsSupport(): ExtensionPack {
         ...metadata(),
         requiredConfigurationValues: [
             "sdm.aws.ecs.launch_type",
+            "sdm.aws.ecs.cluster",
             "sdm.aws.accessKey",
             "sdm.aws.secretKey",
             {path: "sdm.aws.ecs.desiredCount", type: ConfigurationValueType.Number},
+            // {path: "sdm.aws.ecs.networkConfiguration", type: ConfigurationValueType.Object}, -> Add this once supported
+            // ^^https://github.com/atomist/sdm/issues/580
         ],
         configure: sdm => {
             // TODO: Create service/task def files transform

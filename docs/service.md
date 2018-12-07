@@ -4,7 +4,7 @@ When deploying to AWS ECS we must define a service definition that will be used 
 
 ## Default behavior
 
-There is a bare minimum of configuration you must supply to an ECS deployment goal.  Namely: the region, VPC info (if not set in your configuration via optional parameters, see [configuration](configuration.md)), and the cluster name (again if no default is supplied).
+There is a bare minimum of configuration you must supply to an ECS deployment goal.  Namely: the region, VPC info (although you can leverage the defaults in your configuration, see [configuration](configuration.md)), and the cluster name (again if it differs from the default).
 
 Given the following definition of a goal:
 ```javascript
