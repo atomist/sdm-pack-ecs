@@ -5,7 +5,7 @@ When deploying a service to ECS it is first neccessary to create a task definiti
 
 ## Default behavior
 
-This pack allows the automatic generation of task definitions based on the source Dockerfile.  Given no configuration, this pack will parse the Dockerfile and generate a task definition using the `EXPOSE` information.  For example, if your `EXPOSE` port is `8080`, your repo name is `foo`, and the docker build the pack will auto-generate a task that looks like this:
+This pack allows the automatic generation of task definitions based on the source Dockerfile.  Given no configuration, this pack will parse the Dockerfile and generate a task definition using the `EXPOSE` information.  For example, if your `EXPOSE` port is `8080` and your repo name is `foo` the pack will auto-generate a task that looks like this:
 
 > Note: The docker image name is supplied from a previously executed build goal or external image link event
 
