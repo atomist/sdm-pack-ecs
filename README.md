@@ -40,6 +40,6 @@ export function machine(
 };
 ```
 
-# Usage
+# Docs
 See [docs](docs/index.md)
 
