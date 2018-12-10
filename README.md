@@ -2,7 +2,7 @@
   <img src="https://images.atomist.com/sdm/SDM-Logo-Dark.png">
 </p>
 
-# @ipcrmdemo/sdk-pack-ecs
+# @atomist/sdk-pack-ecs
 
 Atomist software delivery machine (SDM) extension pack providing the ability to deploy applications to AWS ECS environments.
 

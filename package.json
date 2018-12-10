@@ -1,23 +1,27 @@
 {
-  "name": "@ipcrmdemo/sdm-pack-ecs",
-  "version": "0.1.2-master.1544146800",
+  "name": "@atomist/sdm-pack-ecs",
+  "version": "0.0.1",
   "description": "SDM Pack ECS",
-  "author": "ipcrm",
+  "author": {
+    "name": "Atomist",
+    "email": "support@atomist.com",
+    "url": "https://atomist.com/"
+  },
   "license": "Apache-2.0",
-  "homepage": "https://github.com/ipcrm/sdm-pack-ecs#readme",
+  "homepage": "https://github.com/atomist/sdm-pack-ecs#readme",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ipcrm/sdm-pack-ecs.git"
+    "url": "https://github.com/atomist/sdm-pack-ecs.git"
   },
   "bugs": {
-    "url": "https://github.com/ipcrm/sdm-pack-ecs/issues"
+    "url": "https://github.com/atomist/sdm-pack-ecs/issues"
   },
   "keywords": [
     "atomist",
     "automation",
     "pack",
     "sdm",
-    "seed"
+    "ecs"
   ],
   "main": "./index.js",
   "types": "./index.d.ts",
