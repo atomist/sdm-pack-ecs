@@ -15,7 +15,10 @@
  */
 
 import { InMemoryProject } from "@atomist/automation-client";
-import { SdmGoalEvent, SdmGoalState } from "@atomist/sdm";
+import {
+    SdmGoalEvent,
+    SdmGoalState,
+} from "@atomist/sdm";
 import * as assert from "assert";
 import { ECS } from "aws-sdk";
 import { EcsDeployRegistration } from "../../lib/goals/EcsDeploy";

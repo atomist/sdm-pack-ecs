@@ -17,7 +17,10 @@
 import { configurationValue } from "@atomist/automation-client";
 import * as assert from "assert";
 import { ECS } from "aws-sdk";
-import { createUpdateServiceRequest, createValidServiceRequest } from "../../lib/support/ecsServiceRequest";
+import {
+    createUpdateServiceRequest,
+    createValidServiceRequest,
+} from "../../lib/support/ecsServiceRequest";
 
 describe("createUpdateServiceRequest", () => {
     describe("convert valid ecs createservicerequest to updateservicerequest", () => {

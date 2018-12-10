@@ -15,9 +15,18 @@
  */
 
 import { logger } from "@atomist/automation-client";
-import { DeployableArtifact, ExecuteGoal, ExecuteGoalResult, GoalDetails, GoalInvocation } from "@atomist/sdm";
+import {
+    DeployableArtifact,
+    ExecuteGoal,
+    ExecuteGoalResult,
+    GoalDetails,
+    GoalInvocation,
+} from "@atomist/sdm";
 import _ = require("lodash");
-import { EcsDeployer, EcsDeploymentInfo } from "../goals/EcsDeploy";
+import {
+    EcsDeployer,
+    EcsDeploymentInfo,
+} from "../goals/EcsDeploy";
 
 // Execute an ECS deploy
 //  *IF there is a task partion task definition, inject

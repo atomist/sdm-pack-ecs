@@ -14,14 +14,28 @@
  * limitations under the License.
  */
 
-import {logger, Project } from "@atomist/automation-client";
-import { RepoContext, SdmGoalEvent} from "@atomist/sdm";
+import {
+    logger,
+    Project,
+} from "@atomist/automation-client";
+import {
+    RepoContext,
+    SdmGoalEvent,
+} from "@atomist/sdm";
 import { ECS } from "aws-sdk";
 import * as path from "path";
 import { createEcsSession } from "../EcsSupport";
-import { EcsDeploy, EcsDeployRegistration } from "../goals/EcsDeploy";
+import {
+    EcsDeploy,
+    EcsDeployRegistration,
+} from "../goals/EcsDeploy";
 import { createValidServiceRequest } from "./ecsServiceRequest";
-import { cmpSuppliedTaskDefinition, ecsGetTaskDefinition, ecsListTaskDefinitions, ecsRegisterTask } from "./taskDefs";
+import {
+    cmpSuppliedTaskDefinition,
+    ecsGetTaskDefinition,
+    ecsListTaskDefinitions,
+    ecsRegisterTask,
+} from "./taskDefs";
 
 export function getImageString(sdmGoal: SdmGoalEvent): string {
     return sdmGoal.push.after.image.imageName.split("/").pop().split(":")[0];
