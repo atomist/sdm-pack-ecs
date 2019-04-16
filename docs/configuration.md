@@ -87,3 +87,57 @@ An example ECS deployment goal.  To learn more about goals, see the [docs](https
 ## Relationship with Dockerbuild goal (or external builds)
 In order to use the ECS deployment pack, you **must** have an image build process that executes prior to the deployment goal executing.  Specifically, there must be an `image-link` event submitted prior to the ECS deployment goal executed so that the required data is present for this pack to determine what image should be deployed.  If you're using the [sdm-pack-docker](https://github.com/atomist/sdm-pack-docker) this is done automatically on your behalf.  If you are using an external build system or your own image build process, you must implement the `image-link` event (see [postLinkImageWebhook](https://atomist.github.io/sdm-core/modules/_util_webhook_imagelink_.html#postlinkimagewebhook)).
 
+## Assume Role support
+Many organizations, if not all, utilize IAM roles to control access to specific functionality/features.  In order to utilize these roles, this extension pack supports assuming IAM roles.
+
+There are two places you may configure the role information.  First, in the goal registration itself, example:
+
+```typescript
+    const ecsDeployProduction = new EcsDeploy({
+      displayName: "Deploy to ECS",
+      uniqueName: "ecsDeployProduction",
+      environment: "production",
+      descriptions: {
+        inProcess: "Deploying to ECS `prod`",
+        completed: "Deploy to ECS `prod`",
+      },
+    })
+      .with({
+        pushTest: HasDockerfile,
+        region: "us-east-1",
+        roleDetail: {
+          RoleArn: "arn:aws:iam::222222222222:role/test_ecs_role",
+          RoleSessionName: "ecs_example",
+        },
+      });
+```
+
+Alternatively, if you'd like to configure your IAM role globally (that is for all ECS deployment goals), you may do so in your configuration file:
+
+```json
+{
+    [...]
+    "sdm": {
+        "aws": {
+            "secretKey": "secret",
+            "accessKey": "accesskey",
+            "ecs": {
+                "roleDetail": {
+                  "RoleArn": "arn:aws:iam::222222222222:role/test_ecs_role",
+                  "RoleSessionName": "ecs_example",
+                },
+                "launch_type": "FARGATE",
+                "cluster": "example",
+                "desiredCount": 3,
+                "networkConfiguration": {
+                    "awsvpcConfiguration": {
+                        "subnets": ["subnet-<id>", "subnet-<id>"],
+                        "securityGroups": ["sg-<id>"],
+                        "assignPublicIp": "ENABLED"
+                    }
+                }
+            }
+        }
+    }
+}
+```
