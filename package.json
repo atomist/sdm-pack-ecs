@@ -1,6 +1,6 @@
 {
   "name": "@atomist/sdm-pack-ecs",
-  "version": "0.0.1",
+  "version": "0.0.2-201904152129",
   "description": "SDM Pack ECS",
   "author": {
     "name": "Atomist",
@@ -26,7 +26,7 @@
   "main": "./index.js",
   "types": "./index.d.ts",
   "dependencies": {
-    "aws-sdk": "^2.353.0",
+    "aws-sdk": "^2.437.0",
     "docker-file-parser": "^1.0.4",
     "lodash": "^4.17.10"
   },
