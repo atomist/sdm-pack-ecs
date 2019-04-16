@@ -113,7 +113,7 @@ export class EcsDeployer implements Deployer<EcsDeploymentInfo, EcsDeployment> {
                         esi: EcsDeploymentInfo,
                         log: ProgressLog,
                         credentials: ProjectOperationCredentials): Promise<EcsDeployment[]> {
-        logger.info("Deploying app [%j] to ECS [%s]", da, esi.description);
+        log.write(`Deploying service [${da.name}] to ECS [${esi.cluster}]`);
 
         // Setup ECS session
         const awsRegion = esi.region;
@@ -146,6 +146,7 @@ export class EcsDeployer implements Deployer<EcsDeploymentInfo, EcsDeployment> {
                     const updateService = await createUpdateServiceRequest(params);
 
                     // Update service with new definition
+                    log.write(`Service already exists, attempting to apply update...`);
                     serviceChange = {
                         response: await ecs.updateService(updateService).promise(),
                         service: params.serviceName,
@@ -153,15 +154,18 @@ export class EcsDeployer implements Deployer<EcsDeploymentInfo, EcsDeployment> {
 
                 } else {
                     // New Service, just create
+                    log.write(`Creating new service ${da.name}...`);
                     serviceChange = {
                         response: await ecs.createService(params).promise(),
                         service: params.serviceName,
                     };
                 }
 
+                log.write(`Service deployed, awaiting "serviceStable" state...`);
                 await ecs.waitFor("servicesStable", { services: [serviceChange.service], cluster: params.cluster }).promise()
                     .then( async () => {
                         const res = await this.getEndpointData(params, serviceChange.response, awsRegion);
+                        log.write(`Service ${da.name} successfully deployed.`);
 
                         resolve({
                             externalUrls: res,

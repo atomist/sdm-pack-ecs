@@ -20,7 +20,6 @@ import {
     ExtensionPack,
     metadata,
 } from "@atomist/sdm";
-import { EC2, ECS } from "aws-sdk";
 import AWS = require("aws-sdk");
 
 export function ecsSupport(): ExtensionPack {
@@ -43,22 +42,28 @@ export function ecsSupport(): ExtensionPack {
     };
 }
 
-export function createEcsSession(region: string): ECS {
-    return new ECS({
-        region,
-        credentials: new AWS.Credentials({
+export function getAwsCredentials(params?: AWS.STS.AssumeRoleRequest): AWS.ChainableTemporaryCredentials {
+    const requestDetails = params ?
+        params : configurationValue<AWS.STS.AssumeRoleRequest>("sdm.aws.credRequest", {} as any); // As any to allow undefined
+    return new AWS.ChainableTemporaryCredentials({
+        params: requestDetails,
+        masterCredentials: new AWS.Credentials({
             accessKeyId: configurationValue<string>("sdm.aws.accessKey"),
             secretAccessKey: configurationValue<string>("sdm.aws.secretKey"),
         }),
     });
 }
 
-export function createEc2Session(region: string): EC2 {
-    return new EC2({
+export function createEcsSession(region: string): AWS.ECS {
+    return new AWS.ECS({
         region,
-        credentials: new AWS.Credentials({
-            accessKeyId: configurationValue<string>("sdm.aws.accessKey"),
-            secretAccessKey: configurationValue<string>("sdm.aws.secretKey"),
-        }),
+        credentials: getAwsCredentials(),
+    });
+}
+
+export function createEc2Session(region: string): AWS.EC2 {
+    return new AWS.EC2({
+        region,
+        credentials: getAwsCredentials(),
     });
 }
