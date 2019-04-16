@@ -36,10 +36,9 @@ import {
     ProjectLoader,
     TargetInfo,
 } from "@atomist/sdm";
-import { EC2, ECS } from "aws-sdk";
-import _ = require("lodash");
+import { EC2, ECS, STS } from "aws-sdk";
 import { executeEcsDeploy } from "../deploy/ecsApi";
-import { createEc2Session, createEcsSession } from "../EcsSupport";
+import {AWSCredentialLookup, createEc2Session, createEcsSession} from "../EcsSupport";
 import { ecsDataCallback } from "../support/ecsDataCallback";
 import { createUpdateServiceRequest } from "../support/ecsServiceRequest";
 
@@ -61,6 +60,8 @@ export interface EcsDeployRegistration extends Partial<ImplementationRegistratio
     taskDefinition?: ECS.Types.RegisterTaskDefinitionRequest;
     externalUrls?: string[];
     region: string;
+    roleDetail?: STS.AssumeRoleRequest;
+    credentialLookup?: AWSCredentialLookup;
 }
 
 // tslint:disable-next-line:max-line-length
@@ -82,7 +83,7 @@ export class EcsDeploy extends FulfillableGoalWithRegistrations<EcsDeployRegistr
         // tslint:disable-next-line:no-object-literal-type-assertion
         this.addFulfillment({
             name: DefaultGoalNameGenerator.generateName("ecs-deployer"),
-            goalExecutor: executeEcsDeploy(),
+            goalExecutor: executeEcsDeploy(registration),
         } as Implementation);
 
         this.addFulfillmentCallback({
@@ -96,6 +97,8 @@ export class EcsDeploy extends FulfillableGoalWithRegistrations<EcsDeployRegistr
 
 export interface EcsDeploymentInfo extends TargetInfo, ECS.Types.CreateServiceRequest {
     region: string;
+    credentialLookup?: AWSCredentialLookup;
+    roleDetail?: STS.AssumeRoleRequest;
 }
 
 export interface EcsDeployment extends Deployment {
@@ -105,7 +108,7 @@ export interface EcsDeployment extends Deployment {
 }
 
 // tslint:disable-next-line:max-classes-per-file
-export class EcsDeployer implements Deployer<EcsDeploymentInfo, EcsDeployment> {
+export class EcsDeployer implements Deployer<EcsDeploymentInfo & EcsDeployRegistration, EcsDeployment> {
     constructor(private readonly projectLoader: ProjectLoader) {
     }
 
@@ -115,9 +118,10 @@ export class EcsDeployer implements Deployer<EcsDeploymentInfo, EcsDeployment> {
                         credentials: ProjectOperationCredentials): Promise<EcsDeployment[]> {
         log.write(`Deploying service [${da.name}] to ECS [${esi.cluster}]`);
 
-        // Setup ECS session
+        // Setup ECS/EC2 session
         const awsRegion = esi.region;
-        const ecs = createEcsSession(awsRegion);
+        const ecs = createEcsSession(awsRegion, esi.roleDetail, esi.credentialLookup);
+        const ec2 = createEc2Session(awsRegion, esi.roleDetail, esi.credentialLookup);
 
         // Cleanup extra target info
         const params = esi;
@@ -164,9 +168,8 @@ export class EcsDeployer implements Deployer<EcsDeploymentInfo, EcsDeployment> {
                 log.write(`Service deployed, awaiting "serviceStable" state...`);
                 await ecs.waitFor("servicesStable", { services: [serviceChange.service], cluster: params.cluster }).promise()
                     .then( async () => {
-                        const res = await this.getEndpointData(params, serviceChange.response, awsRegion);
+                        const res = await this.getEndpointData(params, serviceChange.response, awsRegion, ecs, ec2);
                         log.write(`Service ${da.name} successfully deployed.`);
-
                         resolve({
                             externalUrls: res,
                             clusterName: serviceChange.response.service.clusterArn,
@@ -223,11 +226,10 @@ export class EcsDeployer implements Deployer<EcsDeploymentInfo, EcsDeployment> {
         definition: ECS.Types.UpdateServiceRequest | ECS.Types.CreateServiceRequest,
         data: ECS.Types.UpdateServiceResponse | ECS.Types.CreateServiceResponse,
         region: string,
+        ecs: ECS,
+        ec2: EC2,
         ): Promise<string[]> {
         return new Promise<string[]>( async (resolve, reject) => {
-            const ecs = createEcsSession(region);
-            const ec2 = createEc2Session(region);
-
             // List all tasks in this cluster that match our servicename
             try {
                 const arns = await ecs.listTasks({ serviceName: data.service.serviceName, cluster: definition.cluster }).promise();

@@ -25,12 +25,12 @@ import {
 import _ = require("lodash");
 import {
     EcsDeployer,
-    EcsDeploymentInfo,
+    EcsDeploymentInfo, EcsDeployRegistration,
 } from "../goals/EcsDeploy";
 
 // Execute an ECS deploy
 //  *IF there is a task partion task definition, inject
-export function executeEcsDeploy(): ExecuteGoal {
+export function executeEcsDeploy(registration: EcsDeployRegistration): ExecuteGoal {
     return async (goalInvocation: GoalInvocation): Promise<ExecuteGoalResult> => {
         const {sdmGoal, credentials, id, progressLog, configuration} = goalInvocation;
 
@@ -62,7 +62,11 @@ export function executeEcsDeploy(): ExecuteGoal {
 
         const deployments = await new EcsDeployer(configuration.sdm.projectLoader).deploy(
             image,
-            deployInfo,
+            {
+                ...deployInfo,
+                roleDetail: registration.roleDetail,
+                credentialLookup: registration.credentialLookup,
+            },
             progressLog,
             credentials,
         );
