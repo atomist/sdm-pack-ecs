@@ -33,30 +33,30 @@ import {
 //  *IF there is a task partion task definition, inject
 export function executeEcsDeploy(registration: EcsDeployRegistration): ExecuteGoal {
     return async (goalInvocation: GoalInvocation): Promise<ExecuteGoalResult> => {
-        const {sdmGoal, credentials, id, progressLog, configuration} = goalInvocation;
+        const {goalEvent, credentials, id, progressLog, configuration} = goalInvocation;
 
         // Validate image goal is present
-        if (!sdmGoal.push.after.images ||
-            sdmGoal.push.after.images.length < 1) {
-            const msg = `ECS deploy requested but that commit has no Docker image: ${JSON.stringify(sdmGoal)}`;
+        if (!goalEvent.push.after.images ||
+            goalEvent.push.after.images.length < 1) {
+            const msg = `ECS deploy requested but that commit has no Docker image: ${JSON.stringify(goalEvent)}`;
             logger.error(msg);
             return { code: 1, message: msg };
         }
 
-        const goalData = JSON.parse(sdmGoal.data);
+        const goalData = JSON.parse(goalEvent.data);
 
         logger.info("Deploying project %s:%s to ECS in %s]", id.owner, id.repo, goalData.serviceRequest.cluster);
 
         const image: DeployableArtifact = {
-            name: sdmGoal.repo.name,
-            version: sdmGoal.push.after.sha,
-            filename: sdmGoal.push.after.image.imageName,
+            name: goalEvent.repo.name,
+            version: goalEvent.push.after.sha,
+            filename: goalEvent.push.after.image.imageName,
             id,
         };
 
         const deployInfo: EcsDeploymentInfo = {
-            name: sdmGoal.repo.name,
-            description: sdmGoal.name,
+            name: goalEvent.repo.name,
+            description: goalEvent.name,
             region: goalData.region,
             ...goalData.serviceRequest,
         };
