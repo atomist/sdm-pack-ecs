@@ -25,7 +25,8 @@ import {
 import _ = require("lodash");
 import {
     EcsDeployer,
-    EcsDeploymentInfo, EcsDeployRegistration,
+    EcsDeploymentInfo,
+    EcsDeployRegistration,
 } from "../goals/EcsDeploy";
 
 // Execute an ECS deploy
