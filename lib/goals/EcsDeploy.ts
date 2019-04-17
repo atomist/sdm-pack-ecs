@@ -116,7 +116,7 @@ export class EcsDeployer implements Deployer<EcsDeploymentInfo & EcsDeployRegist
                         esi: EcsDeploymentInfo,
                         log: ProgressLog,
                         credentials: ProjectOperationCredentials): Promise<EcsDeployment[]> {
-        log.write(`Deploying service [${da.name}] to ECS [${esi.cluster}]`);
+        log.write(`Deploying service ${da.name} to ECS cluster ${esi.cluster}`);
 
         // Setup ECS/EC2 session
         const awsRegion = esi.region;
