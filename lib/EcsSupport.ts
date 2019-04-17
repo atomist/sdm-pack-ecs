@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 Atomist, Inc.
+ * Copyright © 2019 Atomist, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,6 @@ import {
     ExtensionPack,
     metadata,
 } from "@atomist/sdm";
-import { EC2, ECS } from "aws-sdk";
 import AWS = require("aws-sdk");
 
 export function ecsSupport(): ExtensionPack {
@@ -32,8 +31,11 @@ export function ecsSupport(): ExtensionPack {
             "sdm.aws.accessKey",
             "sdm.aws.secretKey",
             {path: "sdm.aws.ecs.desiredCount", type: ConfigurationValueType.Number},
-            // {path: "sdm.aws.ecs.networkConfiguration", type: ConfigurationValueType.Object}, -> Add this once supported
-            // ^^https://github.com/atomist/sdm/issues/580
+
+            /** -> Add these once supported (https://github.com/atomist/sdm/issues/580)
+             * {path: "sdm.aws.ecs.networkConfiguration", type: ConfigurationValueType.Object},
+             * {path: "sdm.aws.ecs.roleDetail", type: ConfigurationVaule.Object},
+             */
         ],
         configure: sdm => {
             // TODO: Create service/task def files transform
@@ -43,22 +45,38 @@ export function ecsSupport(): ExtensionPack {
     };
 }
 
-export function createEcsSession(region: string): ECS {
-    return new ECS({
-        region,
-        credentials: new AWS.Credentials({
+export type AWSCredentialLookup = (params?: AWS.STS.AssumeRoleRequest) => AWS.ChainableTemporaryCredentials;
+
+export function getAwsCredentials(params?: AWS.STS.AssumeRoleRequest): AWS.ChainableTemporaryCredentials {
+    const requestDetails = params ?
+        params : configurationValue<AWS.STS.AssumeRoleRequest>("sdm.aws.ecs.roleDetail", {} as any); // As any to allow undefined
+    return new AWS.ChainableTemporaryCredentials({
+        params: requestDetails,
+        masterCredentials: new AWS.Credentials({
             accessKeyId: configurationValue<string>("sdm.aws.accessKey"),
             secretAccessKey: configurationValue<string>("sdm.aws.secretKey"),
         }),
     });
 }
 
-export function createEc2Session(region: string): EC2 {
-    return new EC2({
+export function createEcsSession(
+    region: string,
+    roleDetail?: AWS.STS.AssumeRoleRequest,
+    credentialLookup: AWSCredentialLookup = getAwsCredentials,
+): AWS.ECS {
+    return new AWS.ECS({
         region,
-        credentials: new AWS.Credentials({
-            accessKeyId: configurationValue<string>("sdm.aws.accessKey"),
-            secretAccessKey: configurationValue<string>("sdm.aws.secretKey"),
-        }),
+        credentials: credentialLookup(roleDetail),
+    });
+}
+
+export function createEc2Session(
+    region: string,
+    roleDetail?: AWS.STS.AssumeRoleRequest,
+    credentialLookup: AWSCredentialLookup = getAwsCredentials,
+): AWS.EC2 {
+    return new AWS.EC2({
+        region,
+        credentials: credentialLookup(roleDetail),
     });
 }
