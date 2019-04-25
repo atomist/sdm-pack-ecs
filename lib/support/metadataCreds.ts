@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-import {logger} from "@atomist/automation-client";
+import { logger } from "@atomist/automation-client";
 import AWS = require("aws-sdk");
-import {AWSCredentialLookup} from "../EcsSupport";
+import { AWSCredentialLookup } from "../EcsSupport";
 
 export const metadataAwsCreds: AWSCredentialLookup = params => {
     AWS.config.getCredentials(err => {
