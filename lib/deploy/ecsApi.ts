@@ -14,9 +14,11 @@
  * limitations under the License.
  */
 
-import { logger } from "@atomist/automation-client";
 import {
-    DeployableArtifact,
+    logger,
+    RemoteRepoRef,
+} from "@atomist/automation-client";
+import {
     ExecuteGoal,
     ExecuteGoalResult,
     GoalDetails,
@@ -33,7 +35,7 @@ import {
 //  *IF there is a task partion task definition, inject
 export function executeEcsDeploy(registration: EcsDeployRegistration): ExecuteGoal {
     return async (goalInvocation: GoalInvocation): Promise<ExecuteGoalResult> => {
-        const {goalEvent, credentials, id, progressLog, configuration} = goalInvocation;
+        const {goalEvent, id, progressLog} = goalInvocation;
 
         // Validate image goal is present
         if (!goalEvent.push.after.images ||
@@ -47,7 +49,7 @@ export function executeEcsDeploy(registration: EcsDeployRegistration): ExecuteGo
 
         logger.info("Deploying project %s:%s to ECS in %s]", id.owner, id.repo, goalData.serviceRequest.cluster);
 
-        const image: DeployableArtifact = {
+        const image: EcsDeployableArtifact = {
             name: goalEvent.repo.name,
             version: goalEvent.push.after.sha,
             filename: goalEvent.push.after.image.imageName,
@@ -61,7 +63,7 @@ export function executeEcsDeploy(registration: EcsDeployRegistration): ExecuteGo
             ...goalData.serviceRequest,
         };
 
-        const deployments = await new EcsDeployer(configuration.sdm.projectLoader).deploy(
+        const deployments = await new EcsDeployer().deploy(
             image,
             {
                 ...deployInfo,
@@ -69,7 +71,6 @@ export function executeEcsDeploy(registration: EcsDeployRegistration): ExecuteGo
                 credentialLookup: registration.credentialLookup,
             },
             progressLog,
-            credentials,
         );
 
         const results = await Promise.all(deployments.map(deployment => {
@@ -90,4 +91,11 @@ export function executeEcsDeploy(registration: EcsDeployRegistration): ExecuteGo
 
         return _.head(results);
     };
+}
+
+export interface EcsDeployableArtifact {
+    name: string;
+    version: string;
+    filename: string;
+    id: RemoteRepoRef;
 }
