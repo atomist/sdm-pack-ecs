@@ -26,20 +26,15 @@ interface AwsMetaDataIamRole {
     Token: string;
 }
 
-export const metadataAwsCreds: AWSCredentialLookup = params => {
+export const metadataAwsCreds: AWSCredentialLookup = async params => {
     const baseMetaUrlhttp = "http://169.254.169.254/latest/meta-data/iam/security-credentials/";
     const iamrole = configurationValue<string>("sdm.ecs.iamrole");
-    let creds;
-    return axios.get<AwsMetaDataIamRole>(`${baseMetaUrlhttp}/${iamrole}`)
-        .then(response => {
-           creds = new AWS.ChainableTemporaryCredentials({
-                masterCredentials: new AWS.Credentials({
-                    accessKeyId: response.data.AccessKeyId,
-                    secretAccessKey: response.data.SecretAccessKey,
-                    sessionToken: response.data.Token,
-                }),
-            });
-        });
-
-    return creds;
+    const response = await axios.get<AwsMetaDataIamRole>(`${baseMetaUrlhttp}/${iamrole}`);
+    return new AWS.ChainableTemporaryCredentials({
+        masterCredentials: new AWS.Credentials({
+            accessKeyId: response.data.AccessKeyId,
+            secretAccessKey: response.data.SecretAccessKey,
+            sessionToken: response.data.Token,
+        }),
+    });
 };

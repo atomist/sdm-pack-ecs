@@ -45,9 +45,9 @@ export function ecsSupport(): ExtensionPack {
     };
 }
 
-export type AWSCredentialLookup = (params?: AWS.STS.AssumeRoleRequest) => AWS.ChainableTemporaryCredentials;
+export type AWSCredentialLookup = (params?: AWS.STS.AssumeRoleRequest) => Promise<AWS.ChainableTemporaryCredentials>;
 
-export function getAwsCredentials(params?: AWS.STS.AssumeRoleRequest): AWS.ChainableTemporaryCredentials {
+export async function getAwsCredentials(params?: AWS.STS.AssumeRoleRequest): Promise<AWS.ChainableTemporaryCredentials> {
     const requestDetails = params ?
         params : configurationValue<AWS.STS.AssumeRoleRequest>("sdm.aws.ecs.roleDetail", {} as any); // As any to allow undefined
     return new AWS.ChainableTemporaryCredentials({
@@ -59,24 +59,24 @@ export function getAwsCredentials(params?: AWS.STS.AssumeRoleRequest): AWS.Chain
     });
 }
 
-export function createEcsSession(
+export async function createEcsSession(
     region: string,
     roleDetail?: AWS.STS.AssumeRoleRequest,
     credentialLookup: AWSCredentialLookup = getAwsCredentials,
-): AWS.ECS {
+): Promise<AWS.ECS> {
     return new AWS.ECS({
         region,
-        credentials: credentialLookup(roleDetail),
+        credentials: await credentialLookup(roleDetail),
     });
 }
 
-export function createEc2Session(
+export async function createEc2Session(
     region: string,
     roleDetail?: AWS.STS.AssumeRoleRequest,
     credentialLookup: AWSCredentialLookup = getAwsCredentials,
-): AWS.EC2 {
+): Promise<AWS.EC2> {
     return new AWS.EC2({
         region,
-        credentials: credentialLookup(roleDetail),
+        credentials: await credentialLookup(roleDetail),
     });
 }
