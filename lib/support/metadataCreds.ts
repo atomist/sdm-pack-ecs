@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-import {configurationValue} from "@atomist/automation-client";
+import { configurationValue } from "@atomist/automation-client";
 import AWS = require("aws-sdk");
 // @ts-ignore
 import axios from "axios";
-import {AWSCredentialLookup} from "../EcsSupport";
+import { AWSCredentialLookup } from "../EcsSupport";
 
 interface AwsMetaDataIamRole {
     AccessKeyId: string;
