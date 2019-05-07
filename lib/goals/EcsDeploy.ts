@@ -120,8 +120,8 @@ export class EcsDeployer implements Deployer<EcsDeploymentInfo & EcsDeployRegist
 
         // Setup ECS/EC2 session
         const awsRegion = esi.region;
-        const ecs = createEcsSession(awsRegion, esi.roleDetail, esi.credentialLookup);
-        const ec2 = createEc2Session(awsRegion, esi.roleDetail, esi.credentialLookup);
+        const ecs = await createEcsSession(awsRegion, esi.roleDetail, esi.credentialLookup);
+        const ec2 = await createEc2Session(awsRegion, esi.roleDetail, esi.credentialLookup);
 
         // Cleanup extra target info
         const params = esi;
