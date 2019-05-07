@@ -14,30 +14,13 @@
  * limitations under the License.
  */
 
-import { configurationValue } from "@atomist/automation-client";
 import AWS = require("aws-sdk");
-// @ts-ignore
-import axios from "axios";
 import { AWSCredentialLookup } from "../EcsSupport";
 
-interface AwsMetaDataIamRole {
-    AccessKeyId: string;
-    SecretAccessKey: string;
-    Token: string;
-}
-
 export const metadataAwsCreds: AWSCredentialLookup = async params => {
-    const baseMetaUrlhttp = "http://169.254.169.254/latest/meta-data/iam/security-credentials/";
-    const iamrole = configurationValue<string>("sdm.ecs.iamrole");
-    const response = await axios.get<AwsMetaDataIamRole>(`${baseMetaUrlhttp}/${iamrole}`);
-    const requestDetails = params ?
-        params : configurationValue<AWS.STS.AssumeRoleRequest>("sdm.aws.ecs.roleDetail", {} as any); // As any to allow undefined
-    return new AWS.ChainableTemporaryCredentials({
-        params: requestDetails,
-        masterCredentials: new AWS.Credentials({
-            accessKeyId: response.data.AccessKeyId,
-            secretAccessKey: response.data.SecretAccessKey,
-            sessionToken: response.data.Token,
-        }),
+    AWS.config.credentials = new AWS.EC2MetadataCredentials({
+        httpOptions: { timeout: 5000 },
+        maxRetries: 10,
     });
+    return new AWS.ChainableTemporaryCredentials();
 };
