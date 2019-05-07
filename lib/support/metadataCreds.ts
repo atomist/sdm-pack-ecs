@@ -30,8 +30,14 @@ export const metadataAwsCreds: AWSCredentialLookup = async params => {
     const baseMetaUrlhttp = "http://169.254.169.254/latest/meta-data/iam/security-credentials/";
     const iamrole = configurationValue<string>("sdm.ecs.iamrole");
     const response = await axios.get<AwsMetaDataIamRole>(`${baseMetaUrlhttp}/${iamrole}`);
-    AWS.config.accessKeyId = response.data.AccessKeyId;
-    AWS.config.secretAccessKey = response.data.SecretAccessKey;
-    AWS.config.sessionToken = response.data.Token;
-    return new AWS.ChainableTemporaryCredentials();
+    const requestDetails = params ?
+        params : configurationValue<AWS.STS.AssumeRoleRequest>("sdm.aws.ecs.roleDetail", {} as any); // As any to allow undefined
+    return new AWS.ChainableTemporaryCredentials({
+        params: requestDetails,
+        masterCredentials: new AWS.Credentials({
+            accessKeyId: response.data.AccessKeyId,
+            secretAccessKey: response.data.SecretAccessKey,
+            sessionToken: response.data.Token,
+        }),
+    });
 };

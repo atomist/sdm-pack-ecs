@@ -49,7 +49,7 @@ export type AWSCredentialLookup = (params?: AWS.STS.AssumeRoleRequest) => Promis
 
 export async function getAwsCredentials(params?: AWS.STS.AssumeRoleRequest): Promise<AWS.ChainableTemporaryCredentials> {
     const requestDetails = params ?
-        params : configurationValue<AWS.STS.AssumeRoleRequest>("sdm.aws.ecs.roleDetail", {} as any); // As any to allow undefined
+            params : configurationValue<AWS.STS.AssumeRoleRequest>("sdm.aws.ecs.roleDetail", {} as any); // As any to allow undefined
     return new AWS.ChainableTemporaryCredentials({
         params: requestDetails,
         masterCredentials: new AWS.Credentials({
