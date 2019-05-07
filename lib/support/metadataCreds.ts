@@ -14,22 +14,32 @@
  * limitations under the License.
  */
 
-import { logger } from "@atomist/automation-client";
+import {configurationValue} from "@atomist/automation-client";
 import AWS = require("aws-sdk");
-import { AWSCredentialLookup } from "../EcsSupport";
+// @ts-ignore
+import axios from "axios";
+import {AWSCredentialLookup} from "../EcsSupport";
+
+interface AwsMetaDataIamRole {
+    AccessKeyId: string;
+    SecretAccessKey: string;
+    Token: string;
+}
 
 export const metadataAwsCreds: AWSCredentialLookup = params => {
-    AWS.config.getCredentials(err => {
-        if (err) {
-            logger.error(err.stack);
-            throw new Error(err.stack);
-        }
-    });
-    return new AWS.ChainableTemporaryCredentials({
-        masterCredentials: new AWS.Credentials({
-            accessKeyId: AWS.config.credentials.accessKeyId,
-            secretAccessKey: AWS.config.credentials.secretAccessKey,
-            sessionToken: AWS.config.credentials.sessionToken,
-        }),
-    });
+    const baseMetaUrlhttp = "http://169.254.169.254/latest/meta-data/iam/security-credentials/";
+    const iamrole = configurationValue<string>("sdm.ecs.iamrole");
+    let creds;
+    return axios.get<AwsMetaDataIamRole>(`${baseMetaUrlhttp}/${iamrole}`)
+        .then(response => {
+           creds = new AWS.ChainableTemporaryCredentials({
+                masterCredentials: new AWS.Credentials({
+                    accessKeyId: response.data.AccessKeyId,
+                    secretAccessKey: response.data.SecretAccessKey,
+                    sessionToken: response.data.Token,
+                }),
+            });
+        });
+
+    return creds;
 };
