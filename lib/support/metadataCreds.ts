@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-import AWS = require("aws-sdk");
+// import AWS = require("aws-sdk");
 import { AWSCredentialLookup } from "../EcsSupport";
 
 export const metadataAwsCreds: AWSCredentialLookup = async params => {
-    return new AWS.ChainableTemporaryCredentials({params});
+    return undefined;
 };

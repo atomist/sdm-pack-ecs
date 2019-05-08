@@ -45,7 +45,7 @@ export function ecsSupport(): ExtensionPack {
     };
 }
 
-export type AWSCredentialLookup = (params?: AWS.STS.AssumeRoleRequest) => Promise<AWS.ChainableTemporaryCredentials>;
+export type AWSCredentialLookup = (params?: AWS.STS.AssumeRoleRequest) => Promise<AWS.ChainableTemporaryCredentials> | Promise<undefined>;
 
 export async function getAwsCredentials(params?: AWS.STS.AssumeRoleRequest): Promise<AWS.ChainableTemporaryCredentials> {
     const requestDetails = params ?
