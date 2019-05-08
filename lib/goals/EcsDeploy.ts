@@ -128,6 +128,8 @@ export class EcsDeployer implements Deployer<EcsDeploymentInfo & EcsDeployRegist
         delete params.name;
         delete params.description;
         delete params.region;
+        delete params.credentialLookup;
+        delete params.roleDetail;
 
         // Run Deployment
         return [await new Promise<EcsDeployment>(async (resolve, reject) => {

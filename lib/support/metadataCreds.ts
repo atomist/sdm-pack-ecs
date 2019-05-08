@@ -18,9 +18,5 @@ import AWS = require("aws-sdk");
 import { AWSCredentialLookup } from "../EcsSupport";
 
 export const metadataAwsCreds: AWSCredentialLookup = async params => {
-    AWS.config.credentials = new AWS.EC2MetadataCredentials({
-        httpOptions: { timeout: 5000 },
-        maxRetries: 10,
-    });
-    return new AWS.ChainableTemporaryCredentials();
+    return new AWS.ChainableTemporaryCredentials({params});
 };
