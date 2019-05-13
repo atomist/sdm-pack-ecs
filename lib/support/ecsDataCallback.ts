@@ -170,67 +170,76 @@ export async function getFinalTaskDefinition(
             // .atomist/task-definition.json
             const inProjectTaskDef = await readEcsTaskSpec(p, "task-definition.json");
 
-            // If our registration doesn't include a task definition - generate a generic one
-            if (!registration.taskDefinition && inProjectTaskDef === undefined) {
-                let dockerFile;
-                if (p.hasFile("Dockerfile")) {
-                            const d = await p.getFile("Dockerfile");
-                            dockerFile = await d.getContent();
-                } else {
-                    reject("No task definition present and no dockerfile found!");
-                }
+            // Build 'standard' task def from details
+            let dockerFile;
+            if (p.hasFile("Dockerfile")) {
+                const d = await p.getFile("Dockerfile");
+                dockerFile = await d.getContent();
+            } else {
+                reject("No task definition present and no dockerfile found!");
+            }
 
-                // Get Docker commands out
-                const parser = require("docker-file-parser");
-                const options = { includeComments: false };
-                const commands = parser.parse(dockerFile, options);
-                const exposeCommands = commands.filter((c: any) => c.name === "EXPOSE");
+            // Get Docker commands out
+            const parser = require("docker-file-parser");
+            const options = { includeComments: false };
+            const commands = parser.parse(dockerFile, options);
+            const exposeCommands = commands.filter((c: any) => c.name === "EXPOSE");
 
-                if (exposeCommands.length !== 1) {
-                    reject(`Unable to determine port for default ingress. Dockerfile in project ` +
-                        `'${sdmGoal.repo.owner}/${sdmGoal.repo.name}' has more then one EXPOSE instruction: ` +
-                        exposeCommands.map((c: any) => c.args).join(", "));
-                } else {
-                    newTaskDef.family = imageString;
-                    // TODO: Expose the defaults below in client.config.json
-                    newTaskDef.requiresCompatibilities = [ "FARGATE"];
-                    newTaskDef.networkMode = "awsvpc";
-                    newTaskDef.cpu = "256",
-                    newTaskDef.memory = "512",
+            if (exposeCommands.length !== 1 && !inProjectTaskDef) {
+                reject(`Unable to determine port for container. Dockerfile in project ` +
+                    `'${sdmGoal.repo.owner}/${sdmGoal.repo.name}' is missing an EXPOSE instruction or has more then 1.` +
+                    exposeCommands.map((c: any) => c.args).join(", "));
+            } else {
+                newTaskDef.family = imageString;
 
-                    newTaskDef.containerDefinitions = [
-                        {
-                            name: imageString,
-                            healthCheck: {
-                                command: [
-                                    "CMD-SHELL",
-                                    `wget -O /dev/null http://localhost:${exposeCommands[0].args[0]} || exit 1`,
-                                ],
-                                startPeriod: 30,
-                            },
-                            image: sdmGoal.push.after.image.imageName,
-                            portMappings: [{
-                                containerPort: parseInt(exposeCommands[0].args[0], 10),
-                                hostPort: parseInt(exposeCommands[0].args[0], 10),
-                            }],
+                // TODO: Expose the defaults below in client.config.json
+                newTaskDef.requiresCompatibilities = [ "FARGATE"];
+                newTaskDef.networkMode = "awsvpc";
+                newTaskDef.cpu = "256",
+                newTaskDef.memory = "512",
+                newTaskDef.containerDefinitions = [
+                    {
+                        name: imageString,
+                        healthCheck: {
+                            command: [
+                                "CMD-SHELL",
+                                `wget -O /dev/null http://localhost${exposeCommands.length > 0 ? ":" + exposeCommands[0].args[0] : ""} || exit 1`,
+                            ],
+                            startPeriod: 30,
                         },
-                    ];
-                }
+                        image: sdmGoal.push.after.image.imageName,
+                        // If there are expose commands in the dockerfile, convert those to port mappings
+                        portMappings: exposeCommands.length > 0 ? [{
+                            containerPort: parseInt(exposeCommands[0].args[0], 10),
+                            hostPort: parseInt(exposeCommands[0].args[0], 10),
+                        }] : [],
+                    },
+                ];
+            }
+
+            // If our registration doesn't include a task definition and there isn't a definition in the project, use the generated one
+            if (!registration.taskDefinition && inProjectTaskDef === undefined) {
                 resolve(newTaskDef);
             } else {
-
+                // If there is a in-project task definition merge it with the built-in one
+                //  We merge b/c the taskDefinitions can be the complete definition or just a patch
                 if (inProjectTaskDef !== undefined) {
-                    // Merge in project config onto black definition
+                    // Merge in project config onto blank definition
                     newTaskDef = {...newTaskDef, ...inProjectTaskDef};
                 } else {
+                    // Final fallback, look for taskDefinition on the registration
                     newTaskDef = registration.taskDefinition;
                 }
 
+                // Within the task definition, search all container defs and for the one that matches this Image (from the goal) update to version
+                // we just built
                 newTaskDef.containerDefinitions.forEach( k => {
                     if (imageString === k.name) {
                         k.image = sdmGoal.push.after.image.imageName;
                     }
+
                     // TODO: Expose the defaults below in client.config.json
+                    // If we detect that the memory and cpu values are missing, inject them (required in Fargate)
                     k.memory = k.hasOwnProperty("memory") && k.memory ? k.memory : 512;
                     k.cpu = k.hasOwnProperty("cpu") && k.cpu ? k.cpu : 256;
                 });
