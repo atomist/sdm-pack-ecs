@@ -176,7 +176,7 @@ export async function getFinalTaskDefinition(
                 const d = await p.getFile("Dockerfile");
                 dockerFile = await d.getContent();
             } else {
-                reject("No task definition present and no dockerfile found!");
+                reject(new Error("No task definition present and no dockerfile found!"));
             }
 
             // Get Docker commands out
@@ -186,9 +186,9 @@ export async function getFinalTaskDefinition(
             const exposeCommands = commands.filter((c: any) => c.name === "EXPOSE");
 
             if (exposeCommands.length !== 1 && !inProjectTaskDef) {
-                reject(`Unable to determine port for container. Dockerfile in project ` +
+                reject(new Error(`Unable to determine port for container. Dockerfile in project ` +
                     `'${sdmGoal.repo.owner}/${sdmGoal.repo.name}' is missing an EXPOSE instruction or has more then 1.` +
-                    exposeCommands.map((c: any) => c.args).join(", "));
+                    exposeCommands.map((c: any) => c.args).join(", ")));
             } else {
                 newTaskDef.family = imageString;
 

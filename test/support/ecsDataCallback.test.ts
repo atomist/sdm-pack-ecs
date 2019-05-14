@@ -156,7 +156,7 @@ describe("getFinalTaskDefinition", () => {
             .then()
             .catch(e => {
                 /* tslint:disable:max-line-length */
-                assert(e === "Unable to determine port for container. Dockerfile in project 'fakeowner/fakerepo' is missing an EXPOSE instruction or has more then 1.");
+                assert(e.message === "Unable to determine port for container. Dockerfile in project 'fakeowner/fakerepo' is missing an EXPOSE instruction or has more then 1.");
             });
         });
     });
