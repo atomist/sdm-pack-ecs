@@ -15,6 +15,7 @@
  */
 
 import {
+    configurationValue,
     logger,
     Project,
 } from "@atomist/automation-client";
@@ -27,7 +28,7 @@ import * as path from "path";
 import { createEcsSession } from "../EcsSupport";
 import {
     EcsDeploy,
-    EcsDeployRegistration,
+    EcsDeployRegistration, ECSTaskDefaults,
 } from "../goals/EcsDeploy";
 import { createValidServiceRequest } from "./ecsServiceRequest";
 import {
@@ -138,14 +139,14 @@ export async function getSpecFile(p: Project, name: string):
 
 export async function readEcsServiceSpec(p: Project, name: string):
     Promise<Partial<ECS.Types.CreateServiceRequest>> {
-    return new Promise<Partial<ECS.Types.CreateServiceRequest>>(async (resolve, reject) => {
+    return new Promise<Partial<ECS.Types.CreateServiceRequest>>(async resolve => {
         resolve(getSpecFile(p, name) as Partial<ECS.Types.CreateServiceRequest>);
     });
 }
 
 export async function readEcsTaskSpec(p: Project, name: string):
     Promise<Partial<ECS.Types.RegisterTaskDefinitionRequest>> {
-    return new Promise<Partial<ECS.Types.RegisterTaskDefinitionRequest>>(async (resolve, reject) => {
+    return new Promise<Partial<ECS.Types.RegisterTaskDefinitionRequest>>(async resolve => {
         resolve(getSpecFile(p, name) as Partial<ECS.Types.RegisterTaskDefinitionRequest>);
     });
 }
@@ -155,6 +156,9 @@ export async function getFinalTaskDefinition(
     sdmGoal: SdmGoalEvent,
     registration: EcsDeployRegistration): Promise<ECS.Types.RegisterTaskDefinitionRequest> {
         return new Promise<ECS.Types.RegisterTaskDefinitionRequest>(async (resolve, reject) => {
+            const taskDefaults = registration.taskDefaults ?
+                registration.taskDefaults : configurationValue<ECSTaskDefaults>("sdm.aws.ecs.taskDefaults");
+
             // Set image string, example source value:
             //  <registry>/<author>/<image>:<version>"
             const imageString = getImageString(sdmGoal);
@@ -191,12 +195,10 @@ export async function getFinalTaskDefinition(
                     exposeCommands.map((c: any) => c.args).join(", ")));
             } else {
                 newTaskDef.family = imageString;
-
-                // TODO: Expose the defaults below in client.config.json
-                newTaskDef.requiresCompatibilities = [ "FARGATE"];
-                newTaskDef.networkMode = "awsvpc";
-                newTaskDef.cpu = "256",
-                newTaskDef.memory = "512",
+                newTaskDef.requiresCompatibilities = taskDefaults.requiredCompatibilities;
+                newTaskDef.networkMode = taskDefaults.networkMode;
+                newTaskDef.cpu = taskDefaults.cpu.toString();
+                newTaskDef.memory = taskDefaults.memory.toString();
                 newTaskDef.containerDefinitions = [
                     {
                         name: imageString,
@@ -238,10 +240,9 @@ export async function getFinalTaskDefinition(
                         k.image = sdmGoal.push.after.image.imageName;
                     }
 
-                    // TODO: Expose the defaults below in client.config.json
-                    // If we detect that the memory and cpu values are missing, inject them (required in Fargate)
-                    k.memory = k.hasOwnProperty("memory") && k.memory ? k.memory : 512;
-                    k.cpu = k.hasOwnProperty("cpu") && k.cpu ? k.cpu : 256;
+                    // If we detect that the memory and cpu values are missing inject them (required in Fargate)
+                    k.memory = k.hasOwnProperty("memory") && k.memory ? k.memory : taskDefaults.memory;
+                    k.cpu = k.hasOwnProperty("cpu") && k.cpu ? k.cpu : taskDefaults.cpu;
                 });
                 resolve(newTaskDef);
             }
