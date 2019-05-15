@@ -84,6 +84,12 @@ describe("createValidServiceRequest", () => {
                                         assignPublicIp: "ENABLED",
                                     },
                                 },
+                                taskDefaults: {
+                                    cpu: 256,
+                                    memory: 1024,
+                                    requiredCompatibilities: ["FARGATE"],
+                                    networkMode: "awsvpc",
+                                },
                             },
                         },
                     },

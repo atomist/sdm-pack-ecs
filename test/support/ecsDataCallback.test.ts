@@ -108,6 +108,39 @@ const getDummySdmEvent = (): SdmGoalEvent => {
 };
 
 describe("getFinalTaskDefinition", () => {
+    before(() => {
+        (global as any).__runningAutomationClient = {
+            configuration: {
+                sdm: {
+                    aws: {
+                        ecs: {
+                            launch_type: "FARGATE",
+                            cluster: "tutorial",
+                            desiredCount: 3,
+                            networkConfiguration: {
+                                awsvpcConfiguration: {
+                                    subnets: ["subnet-02ddf34bfe7f6c19a", "subnet-0c5bfb43a631bee45"],
+                                    securityGroups: ["sg-0959d9866b23698f2"],
+                                    assignPublicIp: "ENABLED",
+                                },
+                            },
+                            taskDefaults: {
+                                cpu: 256,
+                                memory: 512,
+                                requiredCompatibilities: ["FARGATE"],
+                                networkMode: "awsvpc",
+                            },
+                        },
+                    },
+                },
+            },
+        };
+    });
+
+    after(() => {
+        delete (global as any).__runningAutomationClient;
+    });
+
     describe("create final task definition from local project and default config", () => {
         it("should succeed", async () => {
             const dummySdmEvent: SdmGoalEvent = getDummySdmEvent();
