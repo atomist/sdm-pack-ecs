@@ -28,7 +28,8 @@ import * as path from "path";
 import { createEcsSession } from "../EcsSupport";
 import {
     EcsDeploy,
-    EcsDeployRegistration, ECSTaskDefaults,
+    EcsDeployRegistration,
+    ECSTaskDefaults,
 } from "../goals/EcsDeploy";
 import { createValidServiceRequest } from "./ecsServiceRequest";
 import {
