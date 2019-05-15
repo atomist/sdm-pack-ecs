@@ -2,10 +2,7 @@
 
 In order to make use of sdm-pack-ecs you will need a few things:
 
-* A valid AWS Access key and Secret key with access to create/update/delete tasks and deployments
-
-> Note: Currently this does not support assume role, a future version will
-
+* A valid AWS Access key and Secret key with access to create/update/delete tasks and deployments (if not using credentials from metadata service with an IAM role)
 * An existing ECS Cluster (EC2 or Fargate)
 
 ## SDM Configuration
@@ -13,21 +10,27 @@ In order to make use of sdm-pack-ecs you will need a few things:
 Within your [Atomist client config](https://docs.atomist.com/developer/prerequisites/#user-configuration), we'll need to create some new entries for AWS.
 
 **Required entries**:
-
-* `secretKey`: String. The AWS Secret key associated with your account
+* `secretKey`: String. The AWS Secret key associated with your account.
 * `accessKey`: String. The AWS Access key associated with your account
+  > Note: `secretKey` and `accessKey` are NOT required if you have assigned an IAM Role to the entity you are running the SDM on.  Those credentials will be automatically loaded.
+  
 * `ecs` (object)
   * `launch_type`: String.  The default ECS launch type for a service.  Valid values: `FARGATE` or `EC2`
   * `desiredCount`: String.  The number of tasks that should be created for a given service (if not defined elsewhere)
 
-> All of the entries listed below are defaults and can (and likely should) be overriden in your individual [task](task.md) and [service](service.md) definitions.
+  > All of the entries listed below are defaults and can (and likely should) be overriden in your individual [task](task.md) and [service](service.md) definitions.
 
-* `cluster`: String.  The default cluster to use. If no other configuration was provided for the service, this value will be used.  See [service configuration](service.md) for details.
-* `networkConfiguration` (object)
+  * `cluster`: String.  The default cluster to use. If no other configuration was provided for the service, this value will be used.  See [service configuration](service.md) for details.
+  * `networkConfiguration` (object)
     * `awsvpcConfiguration` (object)
         * `subnets`: Array.  Supply a default list of subnets to place your tasks in.  These subnets should be available in the VPC your cluster was created in.
         * `securityGroups`: Array.  Supply a default list of subnets to place your tasks into.  These security groups should be in the same VPC you created your cluster in.
         * `assignPublicIp`: String.  Valid `ENABLED` or `DISABLED`.  Should this task be given a public IP?  Only valid for Fargate launch type (ignored if launch type is EC2).
+  * `taskDefaults` (object)
+    * `cpu`: Number.  Supply a default value that will be given to ECS Task definitions that are either automatically generated or missing cpu configuration (which is required for Fargate)
+    * `memory`: Number.  Supply a default value that will be given to ECS Task definitions that are either automatically generated or missing memory configuration (which is required for Fargate)
+    * `requiredCompatibilities`: Array.  Provide the required compatibility for a given task.  Current ECS supports values of `EC2` or `FARGATE`.
+    * `networkMode`: String. Provide the default docker network mode for a given task. The valid values are none, bridge, awsvpc, and host.  Fargate tasks require the use of `awsvpc`, however EC2 ECS clusters can use any mode.
 
 
 Example:
@@ -48,6 +51,12 @@ Example:
                         "securityGroups": ["sg-<id>"],
                         "assignPublicIp": "ENABLED"
                     }
+                }
+                "taskDefaults": {
+                    "cpu": 256,
+                    "memory": 1024,
+                    "requiredCompatibilities": ["FARGATE"],
+                    "networkMode": "awsvpc"
                 }
             }
         }
@@ -135,6 +144,12 @@ Alternatively, if you'd like to configure your IAM role globally (that is for al
                         "securityGroups": ["sg-<id>"],
                         "assignPublicIp": "ENABLED"
                     }
+                },
+                "taskDefaults": {
+                    "cpu": 256,
+                    "memory": 1024,
+                    "requiredCompatibilities": ["FARGATE"],
+                    "networkMode": "awsvpc"
                 }
             }
         }
