@@ -17,10 +17,10 @@
 import { logger } from "@atomist/automation-client";
 import {
     DeployableArtifact,
+    doWithProject,
     ExecuteGoal,
     ExecuteGoalResult,
     GoalDetails,
-    GoalInvocation,
 } from "@atomist/sdm";
 import _ = require("lodash");
 import {
@@ -32,7 +32,7 @@ import {
 // Execute an ECS deploy
 //  *IF there is a task partion task definition, inject
 export function executeEcsDeploy(registration: EcsDeployRegistration): ExecuteGoal {
-    return async (goalInvocation: GoalInvocation): Promise<ExecuteGoalResult> => {
+    return doWithProject(async goalInvocation => {
         const {goalEvent, credentials, id, progressLog, configuration} = goalInvocation;
 
         // Validate image goal is present
@@ -89,5 +89,5 @@ export function executeEcsDeploy(registration: EcsDeployRegistration): ExecuteGo
         }));
 
         return _.head(results);
-    };
+    });
 }
