@@ -20,7 +20,7 @@ import {
 import {
     DefaultGoalNameGenerator,
     FulfillableGoalDetails,
-    FulfillableGoalWithRegistrations,
+    FulfillableGoalWithRegistrationsAndListeners,
     getGoalDefinitionFrom,
     Goal,
     GoalDefinition,
@@ -35,8 +35,8 @@ import {
     executeEcsDeploy,
 } from "../deploy/ecsApi";
 import {AWSCredentialLookup, createEc2Session, createEcsSession} from "../EcsSupport";
-import { ecsDataCallback } from "../support/ecsDataCallback";
 import { createUpdateServiceRequest } from "../support/ecsServiceRequest";
+import {EcsDeploymentListenerRegistration} from "../support/listeners";
 
 const EcsGoalDefinition: GoalDefinition = {
     displayName: "deploying to ECS",
@@ -69,7 +69,7 @@ export interface EcsDeployRegistration extends Partial<ImplementationRegistratio
 }
 
 // tslint:disable-next-line:max-line-length
-export class EcsDeploy extends FulfillableGoalWithRegistrations<EcsDeployRegistration> {
+export class EcsDeploy extends FulfillableGoalWithRegistrationsAndListeners<EcsDeployRegistration, EcsDeploymentListenerRegistration> {
     // tslint:disable-next-line
     constructor(protected details: FulfillableGoalDetails | string = DefaultGoalNameGenerator.generateName("ecs-deploy-push"), 
                 ...dependsOn: Goal[]) {
@@ -90,16 +90,11 @@ export class EcsDeploy extends FulfillableGoalWithRegistrations<EcsDeployRegistr
             goalExecutor: executeEcsDeploy(registration),
         } as Implementation);
 
-        this.addFulfillmentCallback({
-            goal: this,
-            callback: ecsDataCallback(this, registration),
-        });
-
         return this;
     }
 }
 
-export interface EcsDeploymentInfo extends ECS.Types.CreateServiceRequest {
+export interface EcsDeploymentInfo {
     name: string;
     region: string;
     credentialLookup?: AWSCredentialLookup;
@@ -116,75 +111,61 @@ export interface EcsDeployment {
 export class EcsDeployer {
     public async deploy(da: EcsDeployableArtifact,
                         esi: EcsDeploymentInfo,
-                        log: ProgressLog): Promise<EcsDeployment[]> {
-        log.write(`Deploying service ${da.name} to ECS cluster ${esi.cluster}`);
+                        serviceRequest: ECS.CreateServiceRequest,
+                        log: ProgressLog): Promise<EcsDeployment> {
+        log.write(`Deploying service ${da.name} to ECS cluster ${serviceRequest.cluster}`);
 
         // Setup ECS/EC2 session
         const awsRegion = esi.region;
         const ecs = await createEcsSession(awsRegion, esi.roleDetail, esi.credentialLookup);
         const ec2 = await createEc2Session(awsRegion, esi.roleDetail, esi.credentialLookup);
 
-        // Cleanup extra target info
-        const params = esi;
-        delete params.region;
-        delete params.credentialLookup;
-        delete params.roleDetail;
-        delete params.name;
-        if (params.hasOwnProperty("description")) { delete (params as any).description; }
-
         // Run Deployment
-        return [await new Promise<EcsDeployment>(async (resolve, reject) => {
-
-            try {
-                const data = await ecs.listServices({cluster: params.cluster}).promise();
-                let updateOrCreate = 0;
-                data.serviceArns.forEach(s => {
-                    // arn:aws:ecs:us-east-1:247672886355:service/ecs-test-1-production
-                    const service = s.split(":").pop().split("/").pop();
-                    if (service === params.serviceName) {
-                        updateOrCreate += 1;
-                    }
-                });
-
-                let serviceChange: any;
-                if (updateOrCreate !== 0) {
-                    // If we are updating, we need to build an UpdateServiceRequest from the data
-                    //  we got in params (which is a CreateServiceRequest, not update)
-                    const updateService = await createUpdateServiceRequest(params);
-
-                    // Update service with new definition
-                    log.write(`Service already exists, attempting to apply update...`);
-                    serviceChange = {
-                        response: await ecs.updateService(updateService).promise(),
-                        service: params.serviceName,
-                    };
-                } else {
-                    // New Service, just create
-                    log.write(`Creating new service ${da.name}...`);
-                    serviceChange = {
-                        response: await ecs.createService(params).promise(),
-                        service: params.serviceName,
-                    };
-                }
-
-                log.write(`Service deployed, awaiting "serviceStable" state...`);
-                await ecs.waitFor("servicesStable", { services: [serviceChange.service], cluster: params.cluster }).promise()
-                    .then( async () => {
-                        const res = await this.getEndpointData(params, serviceChange.response, awsRegion, ecs, ec2);
-                        log.write(`Service ${da.name} successfully deployed.`);
-                        resolve({
-                            externalUrls: res,
-                            clusterName: serviceChange.response.service.clusterArn,
-                            projectName: esi.name,
-                        });
-                    });
-
-            } catch (error) {
-                logger.error(error);
-                reject(error);
+        const data = await ecs.listServices({cluster: serviceRequest.cluster}).promise();
+        let updateOrCreate = 0;
+        data.serviceArns.forEach(s => {
+            // arn:aws:ecs:us-east-1:247672886355:service/ecs-test-1-production
+            const service = s.split(":").pop().split("/").pop();
+            if (service === serviceRequest.serviceName) {
+                updateOrCreate += 1;
             }
+        });
 
-        })];
+        let serviceChange: any;
+        if (updateOrCreate !== 0) {
+            // If we are updating, we need to build an UpdateServiceRequest from the data
+            //  we got in params (which is a CreateServiceRequest, not update)
+            const updateService = await createUpdateServiceRequest(serviceRequest);
+
+            // Update service with new definition
+            log.write(`Service already exists, attempting to apply update...`);
+            serviceChange = {
+                response: await ecs.updateService(updateService).promise(),
+                service: serviceRequest.serviceName,
+            };
+        } else {
+            // New Service, just create
+            log.write(`Creating new service ${da.name}...`);
+            serviceChange = {
+                response: await ecs.createService(serviceRequest).promise(),
+                service: serviceRequest.serviceName,
+            };
+        }
+
+        let response: EcsDeployment;
+        log.write(`Service deployed, awaiting "serviceStable" state...`);
+        await ecs.waitFor("servicesStable", { services: [serviceChange.service], cluster: serviceRequest.cluster }).promise()
+            .then( async () => {
+                const res = await this.getEndpointData(serviceRequest, serviceChange.response, awsRegion, ecs, ec2);
+                log.write(`Service ${da.name} successfully deployed.`);
+                response = {
+                    externalUrls: res,
+                    clusterName: serviceChange.response.service.clusterArn,
+                    projectName: esi.name,
+                };
+            });
+
+        return response;
     }
 
     public async getTaskEndpoint(ec2: EC2, taskDef: ECS.TaskDefinition, tasks: ECS.Task[]): Promise<string[]> {

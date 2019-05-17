@@ -15,7 +15,6 @@
  */
 
 import {
-    logger,
     RemoteRepoRef,
 } from "@atomist/automation-client";
 import {
@@ -24,30 +23,31 @@ import {
     ExecuteGoalResult,
     GoalDetails,
 } from "@atomist/sdm";
-import _ = require("lodash");
+import {ECS} from "aws-sdk";
 import {
     EcsDeployer,
-    EcsDeploymentInfo,
     EcsDeployRegistration,
 } from "../goals/EcsDeploy";
+import {ecsDataCallback} from "../support/ecsDataCallback";
 
 // Execute an ECS deploy
 //  *IF there is a task partion task definition, inject
 export function executeEcsDeploy(registration: EcsDeployRegistration): ExecuteGoal {
     return doWithProject(async goalInvocation => {
         const {goalEvent, id, progressLog} = goalInvocation;
+        const computedRegistration = await ecsDataCallback(registration, goalEvent, goalInvocation.project);
+
+        // Need to run listeners here
 
         // Validate image goal is present
         if (!goalEvent.push.after.images ||
             goalEvent.push.after.images.length < 1) {
             const msg = `ECS deploy requested but that commit has no Docker image: ${JSON.stringify(goalEvent)}`;
-            logger.error(msg);
+            progressLog.write(msg);
             return { code: 1, message: msg };
         }
 
-        const goalData = JSON.parse(goalEvent.data);
-
-        logger.info("Deploying project %s:%s to ECS in %s]", id.owner, id.repo, goalData.serviceRequest.cluster);
+        progressLog.write(`Deploying project ${id.owner}:${id.repo} to ECS in ${computedRegistration.serviceRequest.cluster}`);
 
         const image: EcsDeployableArtifact = {
             name: goalEvent.repo.name,
@@ -56,40 +56,39 @@ export function executeEcsDeploy(registration: EcsDeployRegistration): ExecuteGo
             id,
         };
 
-        const deployInfo: EcsDeploymentInfo = {
-            name: goalEvent.repo.name,
-            description: goalEvent.name,
-            region: goalData.region,
-            ...goalData.serviceRequest,
-        };
+        let response: ExecuteGoalResult;
+        try {
+            const result = await new EcsDeployer().deploy(
+                image,
+                {
+                    name: goalEvent.repo.name,
+                    region: computedRegistration.region,
+                    roleDetail: registration.roleDetail,
+                    credentialLookup: registration.credentialLookup,
+                },
+                computedRegistration.serviceRequest as ECS.CreateServiceRequest,
+                progressLog,
+            );
 
-        const deployments = await new EcsDeployer().deploy(
-            image,
-            {
-                ...deployInfo,
-                roleDetail: registration.roleDetail,
-                credentialLookup: registration.credentialLookup,
-            },
-            progressLog,
-        );
-
-        const results = await Promise.all(deployments.map(deployment => {
-            logger.debug(`Endpoint details: ${JSON.stringify(deployment.externalUrls)}`);
+            progressLog.write(`Endpoint details: ${JSON.stringify(result.externalUrls)}`);
             const endpoints: GoalDetails["externalUrls"] = [];
-            deployment.externalUrls.map( e => {
+            result.externalUrls.map( e => {
                 endpoints.push({url: e});
             });
 
-            logger.debug(`Endpoint details for ${deployment.projectName}: ${JSON.stringify(endpoints)}`);
-
-            // tslint:disable-next-line:no-object-literal-type-assertion
-            return {
+            response = {
                 code: 0,
                 externalUrls: endpoints,
-            } as ExecuteGoalResult;
-        }));
+            };
+        } catch (e) {
+            progressLog.write(`Deployment failed with error => ${e.message}`);
+            response = {
+                code: 1,
+                message: e.message,
+            };
+        }
 
-        return _.head(results);
+        return response;
     });
 }
 
