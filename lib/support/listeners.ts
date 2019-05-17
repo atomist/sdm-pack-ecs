@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import {GitProject} from "@atomist/automation-client";
+import { GitProject } from "@atomist/automation-client";
 import {
     GoalInvocation,
     GoalProjectListenerEvent,

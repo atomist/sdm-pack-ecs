@@ -30,7 +30,7 @@ import {
     serializeResult,
     updateGoal,
 } from "@atomist/sdm";
-import {ECS} from "aws-sdk";
+import { ECS } from "aws-sdk";
 import {
     EcsDeployer,
     EcsDeployRegistration,
