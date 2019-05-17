@@ -14,15 +14,15 @@
  * limitations under the License.
  */
 
+import {GitProject} from "@atomist/automation-client";
 import {
+    GoalInvocation,
+    GoalProjectListenerEvent,
     PushListenerInvocation,
+    PushTest,
     SdmListener,
 } from "@atomist/sdm";
 import { EcsDeployRegistration } from "../goals/EcsDeploy";
-
-export interface EcsDeploymentListenerInvocation extends PushListenerInvocation {
-    registration: EcsDeployRegistration;
-}
 
 export interface EcsDeploymentListenerResponse {
     /**
@@ -45,9 +45,11 @@ export interface EcsDeploymentListenerResponse {
     registration?: EcsDeployRegistration;
 }
 
-export type EcsDeploymentListener = SdmListener<EcsDeploymentListenerInvocation, EcsDeploymentListenerResponse>;
+export type EcsDeploymentListener = (p: GitProject, r: GoalInvocation, event: GoalProjectListenerEvent, registration: EcsDeployRegistration) => Promise<EcsDeploymentListenerResponse>;
 
 export interface EcsDeploymentListenerRegistration {
     name: string;
+    pushTest?: PushTest;
+    events?: GoalProjectListenerEvent[];
     listener: EcsDeploymentListener;
 }

@@ -87,7 +87,7 @@ export class EcsDeploy extends FulfillableGoalWithRegistrationsAndListeners<EcsD
         // tslint:disable-next-line:no-object-literal-type-assertion
         this.addFulfillment({
             name: DefaultGoalNameGenerator.generateName("ecs-deployer"),
-            goalExecutor: executeEcsDeploy(registration),
+            goalExecutor: executeEcsDeploy(registration, this.listeners),
         } as Implementation);
 
         return this;

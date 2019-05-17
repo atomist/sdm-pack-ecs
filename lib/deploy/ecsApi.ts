@@ -15,29 +15,58 @@
  */
 
 import {
+    GitProject,
     RemoteRepoRef,
 } from "@atomist/automation-client";
 import {
+    AnyPush,
     doWithProject,
     ExecuteGoal,
     ExecuteGoalResult,
     GoalDetails,
+    GoalInvocation,
+    GoalProjectListenerEvent,
+    PushListenerInvocation,
+    serializeResult,
+    updateGoal,
 } from "@atomist/sdm";
-import { ECS } from "aws-sdk";
+import {ECS} from "aws-sdk";
 import {
     EcsDeployer,
     EcsDeployRegistration,
 } from "../goals/EcsDeploy";
 import { ecsDataCallback } from "../support/ecsDataCallback";
+import {
+    EcsDeploymentListenerRegistration,
+    EcsDeploymentListenerResponse,
+} from "../support/listeners";
 
 // Execute an ECS deploy
-//  *IF there is a task partion task definition, inject
-export function executeEcsDeploy(registration: EcsDeployRegistration): ExecuteGoal {
+export function executeEcsDeploy(registration: EcsDeployRegistration, listeners: EcsDeploymentListenerRegistration[]): ExecuteGoal {
     return doWithProject(async goalInvocation => {
         const {goalEvent, id, progressLog} = goalInvocation;
-        const computedRegistration = await ecsDataCallback(registration, goalEvent, goalInvocation.project);
+        let computedRegistration = await ecsDataCallback(registration, goalEvent, goalInvocation.project);
 
-        // Need to run listeners here
+        // Run before listeners
+        const lrBeforeResult = await invokeEcsDeploymentListeners(
+            listeners,
+            goalInvocation,
+            GoalProjectListenerEvent.before,
+            goalInvocation.project,
+            computedRegistration,
+        );
+        computedRegistration = lrBeforeResult.registration;
+
+        // Update phase
+        await updateGoal(
+            goalInvocation.context,
+            goalInvocation.goalEvent,
+            {
+                state: goalInvocation.goalEvent.state,
+                description: goalInvocation.goalEvent.description,
+                phase: "Executing",
+            },
+        );
 
         // Validate image goal is present
         if (!goalEvent.push.after.images ||
@@ -63,8 +92,8 @@ export function executeEcsDeploy(registration: EcsDeployRegistration): ExecuteGo
                 {
                     name: goalEvent.repo.name,
                     region: computedRegistration.region,
-                    roleDetail: registration.roleDetail,
-                    credentialLookup: registration.credentialLookup,
+                    roleDetail: computedRegistration.roleDetail,
+                    credentialLookup: computedRegistration.credentialLookup,
                 },
                 computedRegistration.serviceRequest as ECS.CreateServiceRequest,
                 progressLog,
@@ -73,7 +102,9 @@ export function executeEcsDeploy(registration: EcsDeployRegistration): ExecuteGo
             progressLog.write(`Endpoint details: ${JSON.stringify(result.externalUrls)}`);
             const endpoints: GoalDetails["externalUrls"] = [];
             result.externalUrls.map( e => {
-                endpoints.push({url: e});
+                if (e) {
+                    endpoints.push({url: e});
+                }
             });
 
             response = {
@@ -88,6 +119,17 @@ export function executeEcsDeploy(registration: EcsDeployRegistration): ExecuteGo
             };
         }
 
+        // Run after listeners (if deploy succeeded)
+        if (response.code === 0) {
+            await invokeEcsDeploymentListeners(
+                listeners,
+                goalInvocation,
+                GoalProjectListenerEvent.after,
+                goalInvocation.project,
+                computedRegistration,
+            );
+        }
+
         return response;
     });
 }
@@ -97,4 +139,65 @@ export interface EcsDeployableArtifact {
     version: string;
     filename: string;
     id: RemoteRepoRef;
+}
+
+export async function invokeEcsDeploymentListeners(
+    listeners: EcsDeploymentListenerRegistration[],
+    gi: GoalInvocation,
+    event: GoalProjectListenerEvent,
+    p: GitProject,
+    registration: EcsDeployRegistration,
+): Promise<EcsDeploymentListenerResponse> {
+
+    const pli: PushListenerInvocation = {
+        addressChannels: gi.addressChannels,
+        preferences: gi.preferences,
+        configuration: gi.configuration,
+        context: gi.context,
+        credentials: gi.credentials,
+        id: gi.id,
+        project: p,
+        push: gi.goalEvent.push,
+    };
+
+    let newRegistration = registration;
+    for (const l of listeners) {
+        const pushTest = l.pushTest || AnyPush;
+        const events = l.events || [GoalProjectListenerEvent.before, GoalProjectListenerEvent.after];
+        if (events.includes(event) && await pushTest.mapping(pli)) {
+            gi.progressLog.write("/--");
+            gi.progressLog.write(`Invoking ${event} ECS Deployment Listener: ${l.name}`);
+
+            await updateGoal(
+                gi.context,
+                gi.goalEvent,
+                {
+                    state: gi.goalEvent.state,
+                    phase: l.name,
+                    description: gi.goalEvent.description,
+                });
+
+            const result = await l.listener(p, gi, event, newRegistration);
+
+            gi.progressLog.write(`Result: ${serializeResult(result)}`);
+            gi.progressLog.write("\\--");
+
+            if (result.code !== 0) {
+                return {
+                    code: result.code,
+                    message: result.message,
+                };
+            }
+
+            // If this listener returned a registration update, replace registration - in it's entirety
+            if (result.registration) {
+                newRegistration = result.registration;
+            }
+        }
+    }
+
+    return {
+        code: 0,
+        registration: newRegistration,
+    };
 }
