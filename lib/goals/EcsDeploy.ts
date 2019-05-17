@@ -129,6 +129,8 @@ export class EcsDeployer {
         delete params.region;
         delete params.credentialLookup;
         delete params.roleDetail;
+        delete params.name;
+        if (params.hasOwnProperty("description")) { delete (params as any).description; }
 
         // Run Deployment
         return [await new Promise<EcsDeployment>(async (resolve, reject) => {
@@ -156,7 +158,6 @@ export class EcsDeployer {
                         response: await ecs.updateService(updateService).promise(),
                         service: params.serviceName,
                     };
-
                 } else {
                     // New Service, just create
                     log.write(`Creating new service ${da.name}...`);
