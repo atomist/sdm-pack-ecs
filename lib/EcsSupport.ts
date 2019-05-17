@@ -28,13 +28,15 @@ export function ecsSupport(): ExtensionPack {
         requiredConfigurationValues: [
             "sdm.aws.ecs.launch_type",
             "sdm.aws.ecs.cluster",
-            "sdm.aws.accessKey",
-            "sdm.aws.secretKey",
             {path: "sdm.aws.ecs.desiredCount", type: ConfigurationValueType.Number},
+            {path: "sdm.aws.ecs.taskDefaults.cpu", type: ConfigurationValueType.Number},
+            {path: "sdm.aws.ecs.taskDefaults.memory", type: ConfigurationValueType.Number},
+            "sdm.aws.ecs.taskDefaults.networkMode",
 
             /** -> Add these once supported (https://github.com/atomist/sdm/issues/580)
              * {path: "sdm.aws.ecs.networkConfiguration", type: ConfigurationValueType.Object},
              * {path: "sdm.aws.ecs.roleDetail", type: ConfigurationVaule.Object},
+             * {path: "sdm.aws.ecs.taskDefaults.requiredCompatibilities", type: ConfigurationValue.Array},
              */
         ],
         configure: sdm => {

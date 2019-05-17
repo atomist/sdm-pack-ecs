@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 Atomist, Inc.
+ * Copyright © 2019 Atomist, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,6 +31,16 @@ MAINTAINER Atomist <docker@atomist.com>
 RUN mkdir -p /opt/app
 WORKDIR /opt/app
 EXPOSE 8080
+CMD ["-jar", "uuu001.jar"]
+ENTRYPOINT ["/usr/local/bin/dumb-init"]
+COPY target/dummy.jar dummy.jar
+`;
+
+const dummyDockerFileNoExpose = `
+FROM openjdk:8-alpine
+MAINTAINER Atomist <docker@atomist.com>
+RUN mkdir -p /opt/app
+WORKDIR /opt/app
 CMD ["-jar", "uuu001.jar"]
 ENTRYPOINT ["/usr/local/bin/dumb-init"]
 COPY target/dummy.jar dummy.jar
@@ -98,6 +108,39 @@ const getDummySdmEvent = (): SdmGoalEvent => {
 };
 
 describe("getFinalTaskDefinition", () => {
+    before(() => {
+        (global as any).__runningAutomationClient = {
+            configuration: {
+                sdm: {
+                    aws: {
+                        ecs: {
+                            launch_type: "FARGATE",
+                            cluster: "tutorial",
+                            desiredCount: 3,
+                            networkConfiguration: {
+                                awsvpcConfiguration: {
+                                    subnets: ["subnet-02ddf34bfe7f6c19a", "subnet-0c5bfb43a631bee45"],
+                                    securityGroups: ["sg-0959d9866b23698f2"],
+                                    assignPublicIp: "ENABLED",
+                                },
+                            },
+                            taskDefaults: {
+                                cpu: 256,
+                                memory: 512,
+                                requiredCompatibilities: ["FARGATE"],
+                                networkMode: "awsvpc",
+                            },
+                        },
+                    },
+                },
+            },
+        };
+    });
+
+    after(() => {
+        delete (global as any).__runningAutomationClient;
+    });
+
     describe("create final task definition from local project and default config", () => {
         it("should succeed", async () => {
             const dummySdmEvent: SdmGoalEvent = getDummySdmEvent();
@@ -136,6 +179,18 @@ describe("getFinalTaskDefinition", () => {
               `;
 
             assert.strictEqual(JSON.stringify(result), JSON.stringify(JSON.parse(expectedResult)));
+        });
+
+        it("should fail if the dockerfile has no expose ports", async () => {
+            const dummySdmEvent: SdmGoalEvent = getDummySdmEvent();
+            const p = InMemoryProject.of({ path: "Dockerfile", content: dummyDockerFileNoExpose });
+            const registration: EcsDeployRegistration = { region: "us-east-1"};
+            await getFinalTaskDefinition(p, dummySdmEvent, registration)
+            .then()
+            .catch(e => {
+                /* tslint:disable:max-line-length */
+                assert(e.message === "Unable to determine port for container. Dockerfile in project 'fakeowner/fakerepo' is missing an EXPOSE instruction or has more then 1.");
+            });
         });
     });
 
@@ -197,6 +252,96 @@ describe("getFinalTaskDefinition", () => {
                 "networkMode": "awsvpc",
                 "cpu": "512",
                 "memory": "512"
+              }
+              `;
+
+            assert.strictEqual(JSON.stringify(result), JSON.stringify(JSON.parse(expectedResult)));
+        });
+    });
+    describe("create final task definition from local project and customized in project config", () => {
+        it("should succeed", async () => {
+            const dummySdmEvent: SdmGoalEvent = getDummySdmEvent();
+            const p = InMemoryProject.of(
+                {path: "Dockerfile", content: dummyDockerFile },
+                {path: ".atomist/ecs/task-definition.json",
+                    content: JSON.stringify(
+                        { taskRoleArn: "arn:aws:iam::247672886355:role/ecsTaskECRRead", family: "foo", cpu: "1024", memory: "1024"})},
+            );
+            const registration: EcsDeployRegistration = { region: "us-east-1"};
+            const result = await getFinalTaskDefinition(p, dummySdmEvent, registration);
+            const expectedResult = `
+            {
+                "family": "foo",
+                "containerDefinitions": [
+                  {
+                    "name": "fakerepo",
+                    "healthCheck": {
+                      "command": [
+                        "CMD-SHELL",
+                        "wget -O /dev/null http://localhost:8080 || exit 1"
+                      ],
+                      "startPeriod": 30
+                    },
+                    "image": "registry.hub.docker.com/fakeowner/fakerepo:0.0.1-SNAPSHOT-master.20181130104224",
+                    "portMappings": [
+                      {
+                        "containerPort": 8080,
+                        "hostPort": 8080
+                      }
+                    ],
+                    "memory":512,
+                    "cpu":256
+                  }
+                ],
+                "requiresCompatibilities": [
+                  "FARGATE"
+                ],
+                "networkMode": "awsvpc",
+                "cpu": "1024",
+                "memory": "1024",
+                "taskRoleArn": "arn:aws:iam::247672886355:role/ecsTaskECRRead"
+              }
+              `;
+
+            assert.strictEqual(JSON.stringify(result), JSON.stringify(JSON.parse(expectedResult)));
+        });
+
+        it("should succeed even with missing expose in the dockerfile", async () => {
+            const dummySdmEvent: SdmGoalEvent = getDummySdmEvent();
+            const p = InMemoryProject.of(
+                {path: "Dockerfile", content: dummyDockerFileNoExpose },
+                {path: ".atomist/ecs/task-definition.json",
+                    content: JSON.stringify(
+                        { taskRoleArn: "arn:aws:iam::247672886355:role/ecsTaskECRRead", family: "foo", cpu: "1024", memory: "1024"})},
+            );
+            const registration: EcsDeployRegistration = { region: "us-east-1"};
+            const result = await getFinalTaskDefinition(p, dummySdmEvent, registration);
+            const expectedResult = `
+            {
+                "family": "foo",
+                "containerDefinitions": [
+                  {
+                    "name": "fakerepo",
+                    "healthCheck": {
+                      "command": [
+                        "CMD-SHELL",
+                        "wget -O /dev/null http://localhost || exit 1"
+                      ],
+                      "startPeriod": 30
+                    },
+                    "image": "registry.hub.docker.com/fakeowner/fakerepo:0.0.1-SNAPSHOT-master.20181130104224",
+                    "portMappings": [],
+                    "memory":512,
+                    "cpu":256
+                  }
+                ],
+                "requiresCompatibilities": [
+                  "FARGATE"
+                ],
+                "networkMode": "awsvpc",
+                "cpu": "1024",
+                "memory": "1024",
+                "taskRoleArn": "arn:aws:iam::247672886355:role/ecsTaskECRRead"
               }
               `;
 

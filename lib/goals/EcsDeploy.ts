@@ -55,6 +55,13 @@ const EcsGoalDefinition: GoalDefinition = {
     canceledDescription: "Deployment to ECS cancelled",
 };
 
+export interface ECSTaskDefaults {
+   cpu: number;
+   memory: number;
+   requiredCompatibilities: ECS.Compatibility[];
+   networkMode: ECS.NetworkMode;
+}
+
 export interface EcsDeployRegistration extends Partial<ImplementationRegistration> {
     serviceRequest?: Partial<ECS.Types.CreateServiceRequest>;
     taskDefinition?: ECS.Types.RegisterTaskDefinitionRequest;
@@ -62,6 +69,7 @@ export interface EcsDeployRegistration extends Partial<ImplementationRegistratio
     region: string;
     roleDetail?: STS.AssumeRoleRequest;
     credentialLookup?: AWSCredentialLookup;
+    taskDefaults?: ECSTaskDefaults;
 }
 
 // tslint:disable-next-line:max-line-length
@@ -270,7 +278,7 @@ export class EcsDeployer implements Deployer<EcsDeploymentInfo & EcsDeployRegist
                            ti: EcsDeploymentInfo,
                            credentials: ProjectOperationCredentials): Promise<EcsDeployment[]> {
 
-        return this.projectLoader.doWithProject({credentials, id, readOnly: true}, async project => {
+        return this.projectLoader.doWithProject({credentials, id, readOnly: true}, async () => {
             logger.warn("Find Deployments is not implemented in ecsDeployer");
             return [];
         });
