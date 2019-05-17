@@ -14,8 +14,11 @@
  * limitations under the License.
  */
 
-import {PushListenerInvocation, SdmListener} from "@atomist/sdm";
-import {EcsDeployRegistration} from "../goals/EcsDeploy";
+import {
+    PushListenerInvocation,
+    SdmListener,
+} from "@atomist/sdm";
+import { EcsDeployRegistration } from "../goals/EcsDeploy";
 
 export interface EcsDeploymentListenerInvocation extends PushListenerInvocation {
     registration: EcsDeployRegistration;

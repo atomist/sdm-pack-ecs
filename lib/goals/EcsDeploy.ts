@@ -36,7 +36,7 @@ import {
 } from "../deploy/ecsApi";
 import {AWSCredentialLookup, createEc2Session, createEcsSession} from "../EcsSupport";
 import { createUpdateServiceRequest } from "../support/ecsServiceRequest";
-import {EcsDeploymentListenerRegistration} from "../support/listeners";
+import { EcsDeploymentListenerRegistration } from "../support/listeners";
 
 const EcsGoalDefinition: GoalDefinition = {
     displayName: "deploying to ECS",

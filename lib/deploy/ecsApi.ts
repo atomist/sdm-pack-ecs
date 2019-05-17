@@ -23,12 +23,12 @@ import {
     ExecuteGoalResult,
     GoalDetails,
 } from "@atomist/sdm";
-import {ECS} from "aws-sdk";
+import { ECS } from "aws-sdk";
 import {
     EcsDeployer,
     EcsDeployRegistration,
 } from "../goals/EcsDeploy";
-import {ecsDataCallback} from "../support/ecsDataCallback";
+import { ecsDataCallback } from "../support/ecsDataCallback";
 
 // Execute an ECS deploy
 //  *IF there is a task partion task definition, inject
