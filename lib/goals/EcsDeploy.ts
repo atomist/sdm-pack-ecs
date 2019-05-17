@@ -16,14 +16,9 @@
 
 import {
     logger,
-    ProjectOperationCredentials,
-    RemoteRepoRef,
 } from "@atomist/automation-client";
 import {
     DefaultGoalNameGenerator,
-    DeployableArtifact,
-    Deployer,
-    Deployment,
     FulfillableGoalDetails,
     FulfillableGoalWithRegistrations,
     getGoalDefinitionFrom,
@@ -33,11 +28,12 @@ import {
     ImplementationRegistration,
     IndependentOfEnvironment,
     ProgressLog,
-    ProjectLoader,
-    TargetInfo,
 } from "@atomist/sdm";
 import { EC2, ECS, STS } from "aws-sdk";
-import { executeEcsDeploy } from "../deploy/ecsApi";
+import {
+    EcsDeployableArtifact,
+    executeEcsDeploy,
+} from "../deploy/ecsApi";
 import {AWSCredentialLookup, createEc2Session, createEcsSession} from "../EcsSupport";
 import { ecsDataCallback } from "../support/ecsDataCallback";
 import { createUpdateServiceRequest } from "../support/ecsServiceRequest";
@@ -103,27 +99,24 @@ export class EcsDeploy extends FulfillableGoalWithRegistrations<EcsDeployRegistr
     }
 }
 
-export interface EcsDeploymentInfo extends TargetInfo, ECS.Types.CreateServiceRequest {
+export interface EcsDeploymentInfo extends ECS.Types.CreateServiceRequest {
+    name: string;
     region: string;
     credentialLookup?: AWSCredentialLookup;
     roleDetail?: STS.AssumeRoleRequest;
 }
 
-export interface EcsDeployment extends Deployment {
+export interface EcsDeployment {
     clusterName: string;
     projectName: string;
     externalUrls?: string[];
 }
 
 // tslint:disable-next-line:max-classes-per-file
-export class EcsDeployer implements Deployer<EcsDeploymentInfo & EcsDeployRegistration, EcsDeployment> {
-    constructor(private readonly projectLoader: ProjectLoader) {
-    }
-
-    public async deploy(da: DeployableArtifact,
+export class EcsDeployer {
+    public async deploy(da: EcsDeployableArtifact,
                         esi: EcsDeploymentInfo,
-                        log: ProgressLog,
-                        credentials: ProjectOperationCredentials): Promise<EcsDeployment[]> {
+                        log: ProgressLog): Promise<EcsDeployment[]> {
         log.write(`Deploying service ${da.name} to ECS cluster ${esi.cluster}`);
 
         // Setup ECS/EC2 session
@@ -133,8 +126,6 @@ export class EcsDeployer implements Deployer<EcsDeploymentInfo & EcsDeployRegist
 
         // Cleanup extra target info
         const params = esi;
-        delete params.name;
-        delete params.description;
         delete params.region;
         delete params.credentialLookup;
         delete params.roleDetail;
@@ -269,27 +260,4 @@ export class EcsDeployer implements Deployer<EcsDeploymentInfo & EcsDeployRegist
             }
         });
     }
-
-    public async undeploy(): Promise<void> {
-        return;
-    }
-
-    public findDeployments(id: RemoteRepoRef,
-                           ti: EcsDeploymentInfo,
-                           credentials: ProjectOperationCredentials): Promise<EcsDeployment[]> {
-
-        return this.projectLoader.doWithProject({credentials, id, readOnly: true}, async () => {
-            logger.warn("Find Deployments is not implemented in ecsDeployer");
-            return [];
-        });
-    }
-
-    // tslint:disable-next-line:typedef
-    public logInterpreter(log: string) {
-        return {
-            relevantPart: "",
-            message: "Deploy failed",
-        };
-    }
-
 }
