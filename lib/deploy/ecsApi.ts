@@ -121,13 +121,20 @@ export function executeEcsDeploy(registration: EcsDeployRegistration, listeners:
 
         // Run after listeners (if deploy succeeded)
         if (response.code === 0) {
-            await invokeEcsDeploymentListeners(
+            const lrAfterResult = await invokeEcsDeploymentListeners(
                 listeners,
                 goalInvocation,
                 GoalProjectListenerEvent.after,
                 goalInvocation.project,
                 computedRegistration,
             );
+
+            if (lrAfterResult.externalUrls) {
+                response = {
+                    ...response,
+                    externalUrls: lrAfterResult.externalUrls,
+                };
+            }
         }
 
         return response;
@@ -161,6 +168,7 @@ export async function invokeEcsDeploymentListeners(
     };
 
     let newRegistration = registration;
+    let newExternalUrls: GoalDetails["externalUrls"] = gi.goalEvent.externalUrls;
     for (const l of listeners) {
         const pushTest = l.pushTest || AnyPush;
         const events = l.events || [GoalProjectListenerEvent.before, GoalProjectListenerEvent.after];
@@ -193,11 +201,16 @@ export async function invokeEcsDeploymentListeners(
             if (result.registration) {
                 newRegistration = result.registration;
             }
+
+            if (result.externalUrls) {
+                newExternalUrls = result.externalUrls;
+            }
         }
     }
 
     return {
         code: 0,
         registration: newRegistration,
+        externalUrls: newExternalUrls,
     };
 }

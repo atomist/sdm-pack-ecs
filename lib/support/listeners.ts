@@ -16,11 +16,10 @@
 
 import { GitProject } from "@atomist/automation-client";
 import {
+    GoalDetails,
     GoalInvocation,
     GoalProjectListenerEvent,
-    PushListenerInvocation,
     PushTest,
-    SdmListener,
 } from "@atomist/sdm";
 import { EcsDeployRegistration } from "../goals/EcsDeploy";
 
@@ -43,6 +42,14 @@ export interface EcsDeploymentListenerResponse {
      * Optional.
      */
     registration?: EcsDeployRegistration;
+
+    /**
+     * Given ECS provides many ways to handle ingress application traffic, you may reply with a custom
+     * externalUrls array to provide the correct way to access the app.  By default, the ECS pack searches the
+     * deployment result to see if public IP(s) have been assigned and returns that as the url.
+     * Optional.
+     */
+    externalUrls?: GoalDetails["externalUrls"];
 }
 
 export type EcsDeploymentListener = (p: GitProject, r: GoalInvocation, event: GoalProjectListenerEvent, registration: EcsDeployRegistration) => Promise<EcsDeploymentListenerResponse>;
