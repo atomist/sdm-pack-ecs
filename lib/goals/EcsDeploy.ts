@@ -29,7 +29,8 @@ import {
     IndependentOfEnvironment,
     ProgressLog,
 } from "@atomist/sdm";
-import { EC2, ECS, STS } from "aws-sdk";
+import {AWSError, EC2, ECS, STS} from "aws-sdk";
+import {PromiseResult} from "aws-sdk/lib/request";
 import {
     EcsDeployableArtifact,
     executeEcsDeploy,
@@ -101,10 +102,22 @@ export interface EcsDeploymentInfo {
     roleDetail?: STS.AssumeRoleRequest;
 }
 
+export enum EcsDeploymentExecutionType {
+    created = "created",
+    updated = "updated",
+}
+
 export interface EcsDeployment {
     clusterName: string;
     projectName: string;
     externalUrls?: string[];
+    deploymentType: EcsDeploymentExecutionType;
+
+    /**
+     * The result of the service update or creation
+     * Can check deploymentType to determine if the service was updated or created, however the provided details are the same
+     */
+    serviceDetails?: ECS.CreateServiceResponse;
 }
 
 // tslint:disable-next-line:max-classes-per-file
@@ -131,7 +144,7 @@ export class EcsDeployer {
             }
         });
 
-        let serviceChange: any;
+        let serviceChange: PromiseResult<ECS.CreateServiceResponse, AWSError>;
         if (updateOrCreate !== 0) {
             // If we are updating, we need to build an UpdateServiceRequest from the data
             //  we got in params (which is a CreateServiceRequest, not update)
@@ -139,29 +152,25 @@ export class EcsDeployer {
 
             // Update service with new definition
             log.write(`Service already exists, attempting to apply update...`);
-            serviceChange = {
-                response: await ecs.updateService(updateService).promise(),
-                service: serviceRequest.serviceName,
-            };
+            serviceChange = await ecs.updateService(updateService).promise();
         } else {
             // New Service, just create
             log.write(`Creating new service ${da.name}...`);
-            serviceChange = {
-                response: await ecs.createService(serviceRequest).promise(),
-                service: serviceRequest.serviceName,
-            };
+            serviceChange = await ecs.createService(serviceRequest).promise();
         }
 
         let response: EcsDeployment;
         log.write(`Service deployed, awaiting "serviceStable" state...`);
-        await ecs.waitFor("servicesStable", { services: [serviceChange.service], cluster: serviceRequest.cluster }).promise()
+        await ecs.waitFor("servicesStable", { services: [serviceChange.service.serviceName], cluster: serviceRequest.cluster }).promise()
             .then( async () => {
-                const res = await this.getEndpointData(serviceRequest, serviceChange.response, awsRegion, ecs, ec2);
+                const res = await this.getEndpointData(serviceRequest, serviceChange, awsRegion, ecs, ec2);
                 log.write(`Service ${da.name} successfully deployed.`);
                 response = {
                     externalUrls: res,
-                    clusterName: serviceChange.response.service.clusterArn,
+                    clusterName: serviceChange.service.clusterArn,
                     projectName: esi.name,
+                    deploymentType: updateOrCreate !== 0 ? EcsDeploymentExecutionType.updated : EcsDeploymentExecutionType.created,
+                    serviceDetails: serviceChange,
                 };
             });
 

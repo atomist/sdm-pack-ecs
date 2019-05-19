@@ -33,6 +33,7 @@ import {
 import { ECS } from "aws-sdk";
 import {
     EcsDeployer,
+    EcsDeployment,
     EcsDeployRegistration,
 } from "../goals/EcsDeploy";
 import { ecsDataCallback } from "../support/ecsDataCallback";
@@ -46,6 +47,7 @@ export function executeEcsDeploy(registration: EcsDeployRegistration, listeners:
     return doWithProject(async goalInvocation => {
         const {goalEvent, id, progressLog} = goalInvocation;
         let computedRegistration = await ecsDataCallback(registration, goalEvent, goalInvocation.project);
+        const newExternalUrls: GoalDetails["externalUrls"] = [];
 
         // Run before listeners
         const lrBeforeResult = await invokeEcsDeploymentListeners(
@@ -56,6 +58,9 @@ export function executeEcsDeploy(registration: EcsDeployRegistration, listeners:
             computedRegistration,
         );
         computedRegistration = lrBeforeResult.registration;
+        if (lrBeforeResult.externalUrls) {
+            newExternalUrls.push(...lrBeforeResult.externalUrls);
+        }
 
         // Update phase
         await updateGoal(
@@ -86,8 +91,9 @@ export function executeEcsDeploy(registration: EcsDeployRegistration, listeners:
         };
 
         let response: ExecuteGoalResult;
+        let deployResult: EcsDeployment;
         try {
-            const result = await new EcsDeployer().deploy(
+            deployResult = await new EcsDeployer().deploy(
                 image,
                 {
                     name: goalEvent.repo.name,
@@ -99,9 +105,9 @@ export function executeEcsDeploy(registration: EcsDeployRegistration, listeners:
                 progressLog,
             );
 
-            progressLog.write(`Endpoint details: ${JSON.stringify(result.externalUrls)}`);
+            progressLog.write(`Endpoint details: ${JSON.stringify(deployResult.externalUrls)}`);
             const endpoints: GoalDetails["externalUrls"] = [];
-            result.externalUrls.map( e => {
+            deployResult.externalUrls.map( e => {
                 if (e) {
                     endpoints.push({url: e});
                 }
@@ -127,12 +133,19 @@ export function executeEcsDeploy(registration: EcsDeployRegistration, listeners:
                 GoalProjectListenerEvent.after,
                 goalInvocation.project,
                 computedRegistration,
+                deployResult,
             );
 
+            // Merge listener results of external URLs
             if (lrAfterResult.externalUrls) {
+                newExternalUrls.push(...lrAfterResult.externalUrls);
+            }
+
+            // If the listeners set externalUrls, override the default logic that builds them
+            if (newExternalUrls && newExternalUrls.length > 0) {
                 response = {
                     ...response,
-                    externalUrls: lrAfterResult.externalUrls,
+                    externalUrls: newExternalUrls,
                 };
             }
         }
@@ -154,6 +167,7 @@ export async function invokeEcsDeploymentListeners(
     event: GoalProjectListenerEvent,
     p: GitProject,
     registration: EcsDeployRegistration,
+    deployResult?: EcsDeployment,
 ): Promise<EcsDeploymentListenerResponse> {
 
     const pli: PushListenerInvocation = {
@@ -168,7 +182,7 @@ export async function invokeEcsDeploymentListeners(
     };
 
     let newRegistration = registration;
-    let newExternalUrls: GoalDetails["externalUrls"] = gi.goalEvent.externalUrls;
+    let newExternalUrls: GoalDetails["externalUrls"];
     for (const l of listeners) {
         const pushTest = l.pushTest || AnyPush;
         const events = l.events || [GoalProjectListenerEvent.before, GoalProjectListenerEvent.after];
@@ -185,7 +199,7 @@ export async function invokeEcsDeploymentListeners(
                     description: gi.goalEvent.description,
                 });
 
-            const result = await l.listener(p, gi, event, newRegistration);
+            const result = await l.listener(p, gi, event, newRegistration, deployResult);
 
             gi.progressLog.write(`Result: ${serializeResult(result)}`);
             gi.progressLog.write("\\--");
@@ -203,7 +217,7 @@ export async function invokeEcsDeploymentListeners(
             }
 
             if (result.externalUrls) {
-                newExternalUrls = result.externalUrls;
+                newExternalUrls ? newExternalUrls.push(...result.externalUrls) : newExternalUrls = result.externalUrls;
             }
         }
     }
