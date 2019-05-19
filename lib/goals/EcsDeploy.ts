@@ -30,7 +30,7 @@ import {
     ProgressLog,
 } from "@atomist/sdm";
 import {AWSError, EC2, ECS, STS} from "aws-sdk";
-import {PromiseResult} from "aws-sdk/lib/request";
+import { PromiseResult } from "aws-sdk/lib/request";
 import {
     EcsDeployableArtifact,
     executeEcsDeploy,

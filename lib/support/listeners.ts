@@ -21,7 +21,10 @@ import {
     GoalProjectListenerEvent,
     PushTest,
 } from "@atomist/sdm";
-import {EcsDeployment, EcsDeployRegistration} from "../goals/EcsDeploy";
+import {
+    EcsDeployment,
+    EcsDeployRegistration,
+} from "../goals/EcsDeploy";
 
 export interface EcsDeploymentListenerResponse {
     /**
