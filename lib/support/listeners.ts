@@ -75,7 +75,12 @@ export interface EcsDeploymentListenerResponse {
  * @param registration {EcsDeployRegistration}
  * @param deployResult {EcsDeployment}
  */
-export type EcsDeploymentListener = (p: GitProject, r: GoalInvocation, event: GoalProjectListenerEvent, registration: EcsDeployRegistration, deployResult?: EcsDeployment) => Promise<EcsDeploymentListenerResponse>;
+export type EcsDeploymentListener = (
+    p: GitProject,
+    r: GoalInvocation,
+    event: GoalProjectListenerEvent,
+    registration: EcsDeployRegistration,
+    deployResult?: EcsDeployment) => Promise<EcsDeploymentListenerResponse>;
 
 export interface EcsDeploymentListenerRegistration {
     name: string;
