@@ -12,7 +12,7 @@ Within your [Atomist client config](https://docs.atomist.com/developer/prerequis
 **Required entries**:
 * `secretKey`: String. The AWS Secret key associated with your account.
 * `accessKey`: String. The AWS Access key associated with your account
-  > Note: `secretKey` and `accessKey` are NOT required if you have assigned an IAM Role to the entity you are running the SDM on.  Those credentials will be automatically loaded.
+  > Note: `secretKey` and `accessKey` are required when using the default `credentialLookup` method.  There are other methods, see [Authentication](#authentication).
   
 * `ecs` (object)
   * `launch_type`: String.  The default ECS launch type for a service.  Valid values: `FARGATE` or `EC2`
@@ -96,7 +96,11 @@ An example ECS deployment goal.  To learn more about goals, see the [docs](https
 ## Relationship with Dockerbuild goal (or external builds)
 In order to use the ECS deployment pack, you **must** have an image build process that executes prior to the deployment goal executing.  Specifically, there must be an `image-link` event submitted prior to the ECS deployment goal executed so that the required data is present for this pack to determine what image should be deployed.  If you're using the [sdm-pack-docker](https://github.com/atomist/sdm-pack-docker) this is done automatically on your behalf.  If you are using an external build system or your own image build process, you must implement the `image-link` event (see [postLinkImageWebhook](https://atomist.github.io/sdm-core/modules/_util_webhook_imagelink_.html#postlinkimagewebhook)).
 
-## Assume Role support
+## Authentication
+
+By default, the pack expects to receive credentials from the Atomist SDM configuration (as shown above in [SDM Configuration](#sdm-configuration)).
+
+### Assume Role support
 Many organizations, if not all, utilize IAM roles to control access to specific functionality/features.  In order to utilize these roles, this extension pack supports assuming IAM roles.
 
 There are two places you may configure the role information.  First, in the goal registration itself, example:
@@ -156,3 +160,24 @@ Alternatively, if you'd like to configure your IAM role globally (that is for al
     }
 }
 ```
+
+### Customizing Authentication Behavior
+The default authentication process may not be desirable for all deployments.  When you defining an ECS deployment goal in a SDM there is the opportunity to switch the authentication mechanism.
+
+Example:
+
+```typescript
+    const ecsDeployProduction = new EcsDeploy()
+      .with({
+        region: "us-east-1",
+        credentialLookup: <NAME OF LOOKUP FUNCTION>
+      });
+```
+
+There are two built-in `credentialLookup` functions; `metadataAwsCreds` and `getAwsCredentials`.
+
+`getAwsCredentials`:  Default.  This `credentialLookup` function requires the use of static credentials (as defined in [SDM Configuration](#sdm-configuration)) and also provides the ability to use [Assume Role](#assume-role-support) as defined above.
+
+`metadataAwsCreds`: This `credentialLookup` function makes use of IAM Role credentials assigned to a workload with access to the metadata service.  In using this lookup function you no longer need to provide any credentials or information about assume role, it will all be dynamically loaded from the IAM role assigned to the workload.  
+
+Optionally, you can create your own `credentialLookup` function to support whatever needs you may have.  See the `AWSCredentialLookup` type for details. 
