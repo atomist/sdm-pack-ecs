@@ -1,6 +1,6 @@
 {
   "name": "@atomist/sdm-pack-ecs",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "SDM Pack ECS",
   "author": {
     "name": "Atomist",
