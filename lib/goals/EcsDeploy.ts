@@ -16,16 +16,11 @@
 
 import {
     logger,
-    ProjectOperationCredentials,
-    RemoteRepoRef,
 } from "@atomist/automation-client";
 import {
     DefaultGoalNameGenerator,
-    DeployableArtifact,
-    Deployer,
-    Deployment,
     FulfillableGoalDetails,
-    FulfillableGoalWithRegistrations,
+    FulfillableGoalWithRegistrationsAndListeners,
     getGoalDefinitionFrom,
     Goal,
     GoalDefinition,
@@ -33,14 +28,16 @@ import {
     ImplementationRegistration,
     IndependentOfEnvironment,
     ProgressLog,
-    ProjectLoader,
-    TargetInfo,
 } from "@atomist/sdm";
-import { EC2, ECS, STS } from "aws-sdk";
-import { executeEcsDeploy } from "../deploy/ecsApi";
+import {AWSError, EC2, ECS, STS} from "aws-sdk";
+import { PromiseResult } from "aws-sdk/lib/request";
+import {
+    EcsDeployableArtifact,
+    executeEcsDeploy,
+} from "../deploy/ecsApi";
 import {AWSCredentialLookup, createEc2Session, createEcsSession} from "../EcsSupport";
-import { ecsDataCallback } from "../support/ecsDataCallback";
 import { createUpdateServiceRequest } from "../support/ecsServiceRequest";
+import { EcsDeploymentListenerRegistration } from "../support/listeners";
 
 const EcsGoalDefinition: GoalDefinition = {
     displayName: "deploying to ECS",
@@ -73,7 +70,7 @@ export interface EcsDeployRegistration extends Partial<ImplementationRegistratio
 }
 
 // tslint:disable-next-line:max-line-length
-export class EcsDeploy extends FulfillableGoalWithRegistrations<EcsDeployRegistration> {
+export class EcsDeploy extends FulfillableGoalWithRegistrationsAndListeners<EcsDeployRegistration, EcsDeploymentListenerRegistration> {
     // tslint:disable-next-line
     constructor(protected details: FulfillableGoalDetails | string = DefaultGoalNameGenerator.generateName("ecs-deploy-push"), 
                 ...dependsOn: Goal[]) {
@@ -91,108 +88,93 @@ export class EcsDeploy extends FulfillableGoalWithRegistrations<EcsDeployRegistr
         // tslint:disable-next-line:no-object-literal-type-assertion
         this.addFulfillment({
             name: DefaultGoalNameGenerator.generateName("ecs-deployer"),
-            goalExecutor: executeEcsDeploy(registration),
+            goalExecutor: executeEcsDeploy(registration, this.listeners),
         } as Implementation);
-
-        this.addFulfillmentCallback({
-            goal: this,
-            callback: ecsDataCallback(this, registration),
-        });
 
         return this;
     }
 }
 
-export interface EcsDeploymentInfo extends TargetInfo, ECS.Types.CreateServiceRequest {
+export interface EcsDeploymentInfo {
+    name: string;
     region: string;
     credentialLookup?: AWSCredentialLookup;
     roleDetail?: STS.AssumeRoleRequest;
 }
 
-export interface EcsDeployment extends Deployment {
+export enum EcsDeploymentExecutionType {
+    created = "created",
+    updated = "updated",
+}
+
+export interface EcsDeployment {
     clusterName: string;
     projectName: string;
     externalUrls?: string[];
+    deploymentType: EcsDeploymentExecutionType;
+
+    /**
+     * The result of the service update or creation
+     * Can check deploymentType to determine if the service was updated or created, however the provided details are the same
+     */
+    serviceDetails?: ECS.CreateServiceResponse;
 }
 
 // tslint:disable-next-line:max-classes-per-file
-export class EcsDeployer implements Deployer<EcsDeploymentInfo & EcsDeployRegistration, EcsDeployment> {
-    constructor(private readonly projectLoader: ProjectLoader) {
-    }
-
-    public async deploy(da: DeployableArtifact,
+export class EcsDeployer {
+    public async deploy(da: EcsDeployableArtifact,
                         esi: EcsDeploymentInfo,
-                        log: ProgressLog,
-                        credentials: ProjectOperationCredentials): Promise<EcsDeployment[]> {
-        log.write(`Deploying service ${da.name} to ECS cluster ${esi.cluster}`);
+                        serviceRequest: ECS.CreateServiceRequest,
+                        log: ProgressLog): Promise<EcsDeployment> {
+        log.write(`Deploying service ${da.name} to ECS cluster ${serviceRequest.cluster}`);
 
         // Setup ECS/EC2 session
         const awsRegion = esi.region;
         const ecs = await createEcsSession(awsRegion, esi.roleDetail, esi.credentialLookup);
         const ec2 = await createEc2Session(awsRegion, esi.roleDetail, esi.credentialLookup);
 
-        // Cleanup extra target info
-        const params = esi;
-        delete params.name;
-        delete params.description;
-        delete params.region;
-        delete params.credentialLookup;
-        delete params.roleDetail;
-
         // Run Deployment
-        return [await new Promise<EcsDeployment>(async (resolve, reject) => {
-
-            try {
-                const data = await ecs.listServices({cluster: params.cluster}).promise();
-                let updateOrCreate = 0;
-                data.serviceArns.forEach(s => {
-                    // arn:aws:ecs:us-east-1:247672886355:service/ecs-test-1-production
-                    const service = s.split(":").pop().split("/").pop();
-                    if (service === params.serviceName) {
-                        updateOrCreate += 1;
-                    }
-                });
-
-                let serviceChange: any;
-                if (updateOrCreate !== 0) {
-                    // If we are updating, we need to build an UpdateServiceRequest from the data
-                    //  we got in params (which is a CreateServiceRequest, not update)
-                    const updateService = await createUpdateServiceRequest(params);
-
-                    // Update service with new definition
-                    log.write(`Service already exists, attempting to apply update...`);
-                    serviceChange = {
-                        response: await ecs.updateService(updateService).promise(),
-                        service: params.serviceName,
-                    };
-
-                } else {
-                    // New Service, just create
-                    log.write(`Creating new service ${da.name}...`);
-                    serviceChange = {
-                        response: await ecs.createService(params).promise(),
-                        service: params.serviceName,
-                    };
-                }
-
-                log.write(`Service deployed, awaiting "serviceStable" state...`);
-                await ecs.waitFor("servicesStable", { services: [serviceChange.service], cluster: params.cluster }).promise()
-                    .then( async () => {
-                        const res = await this.getEndpointData(params, serviceChange.response, awsRegion, ecs, ec2);
-                        log.write(`Service ${da.name} successfully deployed.`);
-                        resolve({
-                            externalUrls: res,
-                            clusterName: serviceChange.response.service.clusterArn,
-                            projectName: esi.name,
-                        });
-                    });
-
-            } catch (error) {
-                logger.error(error);
-                reject(error);
+        const data = await ecs.listServices({cluster: serviceRequest.cluster}).promise();
+        let updateOrCreate = 0;
+        data.serviceArns.forEach(s => {
+            // arn:aws:ecs:us-east-1:247672886355:service/ecs-test-1-production
+            const service = s.split(":").pop().split("/").pop();
+            if (service === serviceRequest.serviceName) {
+                updateOrCreate += 1;
             }
+        });
 
-        })];
+        let serviceChange: PromiseResult<ECS.CreateServiceResponse, AWSError>;
+        if (updateOrCreate !== 0) {
+            // If we are updating, we need to build an UpdateServiceRequest from the data
+            //  we got in params (which is a CreateServiceRequest, not update)
+            const updateService = await createUpdateServiceRequest(serviceRequest);
+
+            // Update service with new definition
+            log.write(`Service already exists, attempting to apply update...`);
+            serviceChange = await ecs.updateService(updateService).promise();
+        } else {
+            // New Service, just create
+            log.write(`Creating new service ${da.name}...`);
+            serviceChange = await ecs.createService(serviceRequest).promise();
+        }
+
+        let response: EcsDeployment;
+        log.write(`Service deployed, awaiting "serviceStable" state...`);
+        await ecs.waitFor("servicesStable", { services: [serviceChange.service.serviceName], cluster: serviceRequest.cluster }).promise()
+            .then( async () => {
+                const res = await this.getEndpointData(serviceRequest, serviceChange, awsRegion, ecs, ec2);
+                log.write(`Service ${da.name} successfully deployed.`);
+                response = {
+                    externalUrls: res,
+                    clusterName: serviceChange.service.clusterArn,
+                    projectName: esi.name,
+                    deploymentType: updateOrCreate !== 0 ? EcsDeploymentExecutionType.updated : EcsDeploymentExecutionType.created,
+                    serviceDetails: serviceChange,
+                };
+            });
+
+        return response;
     }
 
     public async getTaskEndpoint(ec2: EC2, taskDef: ECS.TaskDefinition, tasks: ECS.Task[]): Promise<string[]> {
@@ -269,27 +251,4 @@ export class EcsDeployer implements Deployer<EcsDeploymentInfo & EcsDeployRegist
             }
         });
     }
-
-    public async undeploy(): Promise<void> {
-        return;
-    }
-
-    public findDeployments(id: RemoteRepoRef,
-                           ti: EcsDeploymentInfo,
-                           credentials: ProjectOperationCredentials): Promise<EcsDeployment[]> {
-
-        return this.projectLoader.doWithProject({credentials, id, readOnly: true}, async () => {
-            logger.warn("Find Deployments is not implemented in ecsDeployer");
-            return [];
-        });
-    }
-
-    // tslint:disable-next-line:typedef
-    public logInterpreter(log: string) {
-        return {
-            relevantPart: "",
-            message: "Deploy failed",
-        };
-    }
-
 }

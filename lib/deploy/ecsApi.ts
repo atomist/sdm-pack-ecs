@@ -14,80 +14,217 @@
  * limitations under the License.
  */
 
-import { logger } from "@atomist/automation-client";
 import {
-    DeployableArtifact,
+    GitProject,
+    RemoteRepoRef,
+} from "@atomist/automation-client";
+import {
+    AnyPush,
     doWithProject,
     ExecuteGoal,
     ExecuteGoalResult,
     GoalDetails,
+    GoalInvocation,
+    GoalProjectListenerEvent,
+    PushListenerInvocation,
+    serializeResult,
+    updateGoal,
 } from "@atomist/sdm";
-import _ = require("lodash");
+import { ECS } from "aws-sdk";
 import {
     EcsDeployer,
-    EcsDeploymentInfo,
+    EcsDeployment,
     EcsDeployRegistration,
 } from "../goals/EcsDeploy";
+import { ecsDataCallback } from "../support/ecsDataCallback";
+import {
+    EcsDeploymentListenerRegistration,
+    EcsDeploymentListenerResponse,
+} from "../support/listeners";
 
 // Execute an ECS deploy
-//  *IF there is a task partion task definition, inject
-export function executeEcsDeploy(registration: EcsDeployRegistration): ExecuteGoal {
+export function executeEcsDeploy(registration: EcsDeployRegistration, listeners: EcsDeploymentListenerRegistration[]): ExecuteGoal {
     return doWithProject(async goalInvocation => {
-        const {goalEvent, credentials, id, progressLog, configuration} = goalInvocation;
+        const {goalEvent, id, progressLog} = goalInvocation;
+        let computedRegistration = await ecsDataCallback(registration, goalEvent, goalInvocation.project);
+        const newExternalUrls: GoalDetails["externalUrls"] = [];
+
+        // Run before listeners
+        const lrBeforeResult = await invokeEcsDeploymentListeners(
+            listeners,
+            goalInvocation,
+            GoalProjectListenerEvent.before,
+            goalInvocation.project,
+            computedRegistration,
+        );
+        computedRegistration = lrBeforeResult.registration;
+        if (lrBeforeResult.externalUrls) {
+            newExternalUrls.push(...lrBeforeResult.externalUrls);
+        }
+
+        // Update phase
+        await updateGoal(
+            goalInvocation.context,
+            goalInvocation.goalEvent,
+            {
+                state: goalInvocation.goalEvent.state,
+                description: goalInvocation.goalEvent.description,
+                phase: "Executing",
+            },
+        );
 
         // Validate image goal is present
         if (!goalEvent.push.after.images ||
             goalEvent.push.after.images.length < 1) {
             const msg = `ECS deploy requested but that commit has no Docker image: ${JSON.stringify(goalEvent)}`;
-            logger.error(msg);
+            progressLog.write(msg);
             return { code: 1, message: msg };
         }
 
-        const goalData = JSON.parse(goalEvent.data);
+        progressLog.write(`Deploying project ${id.owner}:${id.repo} to ECS in ${computedRegistration.serviceRequest.cluster}`);
 
-        logger.info("Deploying project %s:%s to ECS in %s]", id.owner, id.repo, goalData.serviceRequest.cluster);
-
-        const image: DeployableArtifact = {
+        const image: EcsDeployableArtifact = {
             name: goalEvent.repo.name,
             version: goalEvent.push.after.sha,
             filename: goalEvent.push.after.image.imageName,
             id,
         };
 
-        const deployInfo: EcsDeploymentInfo = {
-            name: goalEvent.repo.name,
-            description: goalEvent.name,
-            region: goalData.region,
-            ...goalData.serviceRequest,
-        };
+        let response: ExecuteGoalResult;
+        let deployResult: EcsDeployment;
+        try {
+            deployResult = await new EcsDeployer().deploy(
+                image,
+                {
+                    name: goalEvent.repo.name,
+                    region: computedRegistration.region,
+                    roleDetail: computedRegistration.roleDetail,
+                    credentialLookup: computedRegistration.credentialLookup,
+                },
+                computedRegistration.serviceRequest as ECS.CreateServiceRequest,
+                progressLog,
+            );
 
-        const deployments = await new EcsDeployer(configuration.sdm.projectLoader).deploy(
-            image,
-            {
-                ...deployInfo,
-                roleDetail: registration.roleDetail,
-                credentialLookup: registration.credentialLookup,
-            },
-            progressLog,
-            credentials,
-        );
-
-        const results = await Promise.all(deployments.map(deployment => {
-            logger.debug(`Endpoint details: ${JSON.stringify(deployment.externalUrls)}`);
+            progressLog.write(`Endpoint details: ${JSON.stringify(deployResult.externalUrls)}`);
             const endpoints: GoalDetails["externalUrls"] = [];
-            deployment.externalUrls.map( e => {
-                endpoints.push({url: e});
+            deployResult.externalUrls.map( e => {
+                if (e) {
+                    endpoints.push({url: e});
+                }
             });
 
-            logger.debug(`Endpoint details for ${deployment.projectName}: ${JSON.stringify(endpoints)}`);
-
-            // tslint:disable-next-line:no-object-literal-type-assertion
-            return {
+            response = {
                 code: 0,
                 externalUrls: endpoints,
-            } as ExecuteGoalResult;
-        }));
+            };
+        } catch (e) {
+            progressLog.write(`Deployment failed with error => ${e.message}`);
+            response = {
+                code: 1,
+                message: e.message,
+            };
+        }
 
-        return _.head(results);
+        // Run after listeners (if deploy succeeded)
+        if (response.code === 0) {
+            const lrAfterResult = await invokeEcsDeploymentListeners(
+                listeners,
+                goalInvocation,
+                GoalProjectListenerEvent.after,
+                goalInvocation.project,
+                computedRegistration,
+                deployResult,
+            );
+
+            // Merge listener results of external URLs
+            if (lrAfterResult.externalUrls) {
+                newExternalUrls.push(...lrAfterResult.externalUrls);
+            }
+
+            // If the listeners set externalUrls, override the default logic that builds them
+            if (newExternalUrls && newExternalUrls.length > 0) {
+                response = {
+                    ...response,
+                    externalUrls: newExternalUrls,
+                };
+            }
+        }
+
+        return response;
     });
+}
+
+export interface EcsDeployableArtifact {
+    name: string;
+    version: string;
+    filename: string;
+    id: RemoteRepoRef;
+}
+
+export async function invokeEcsDeploymentListeners(
+    listeners: EcsDeploymentListenerRegistration[],
+    gi: GoalInvocation,
+    event: GoalProjectListenerEvent,
+    p: GitProject,
+    registration: EcsDeployRegistration,
+    deployResult?: EcsDeployment,
+): Promise<EcsDeploymentListenerResponse> {
+
+    const pli: PushListenerInvocation = {
+        addressChannels: gi.addressChannels,
+        preferences: gi.preferences,
+        configuration: gi.configuration,
+        context: gi.context,
+        credentials: gi.credentials,
+        id: gi.id,
+        project: p,
+        push: gi.goalEvent.push,
+    };
+
+    let newRegistration = registration;
+    let newExternalUrls: GoalDetails["externalUrls"];
+    for (const l of listeners) {
+        const pushTest = l.pushTest || AnyPush;
+        const events = l.events || [GoalProjectListenerEvent.before, GoalProjectListenerEvent.after];
+        if (events.includes(event) && await pushTest.mapping(pli)) {
+            gi.progressLog.write("/--");
+            gi.progressLog.write(`Invoking ${event} ECS Deployment Listener: ${l.name}`);
+
+            await updateGoal(
+                gi.context,
+                gi.goalEvent,
+                {
+                    state: gi.goalEvent.state,
+                    phase: l.name,
+                    description: gi.goalEvent.description,
+                });
+
+            const result = await l.listener(p, gi, event, newRegistration, deployResult);
+
+            gi.progressLog.write(`Result: ${serializeResult(result)}`);
+            gi.progressLog.write("\\--");
+
+            if (result.code !== 0) {
+                return {
+                    code: result.code,
+                    message: result.message,
+                };
+            }
+
+            // If this listener returned a registration update, replace registration - in it's entirety
+            if (result.registration) {
+                newRegistration = result.registration;
+            }
+
+            if (result.externalUrls) {
+                newExternalUrls ? newExternalUrls.push(...result.externalUrls) : newExternalUrls = result.externalUrls;
+            }
+        }
+    }
+
+    return {
+        code: 0,
+        registration: newRegistration,
+        externalUrls: newExternalUrls,
+    };
 }

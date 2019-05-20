@@ -43,80 +43,73 @@ export function getImageString(sdmGoal: SdmGoalEvent): string {
     return sdmGoal.push.after.image.imageName.split("/").pop().split(":")[0];
 }
 
-export function ecsDataCallback(
-    ecsDeploy: EcsDeploy,
+export async function ecsDataCallback(
     registration: EcsDeployRegistration,
-): (goal: SdmGoalEvent, context: RepoContext) => Promise<SdmGoalEvent> {
-    return (sdmGoal, ctx) => {
-        return ecsDeploy.sdm.configuration.sdm.projectLoader.doWithProject({
-            credentials: ctx.credentials, id: ctx.id, context: ctx.context, readOnly: true,
-        }, async p => {
-            // Merge task definition configurations together - SDM Goal registration and in project
-            //   in-project wins
-            const newTaskDef = await getFinalTaskDefinition(p, sdmGoal, registration);
+    sdmGoal: SdmGoalEvent,
+    p: Project,
+): Promise<EcsDeployRegistration> {
+        // Merge task definition configurations together - SDM Goal registration and in project
+        //   in-project wins
+        const newTaskDef = await getFinalTaskDefinition(p, sdmGoal, registration);
 
-            // Populate service request
-            //   Load any in project config and merge with default generated; in project wins
-            const tempServiceRequest = await createValidServiceRequest(
-                registration.hasOwnProperty("serviceRequest")
-                    && registration.serviceRequest ? registration.serviceRequest : {},
-            );
-            const inProjectSr = await readEcsServiceSpec(p, "service.json");
-            const validServiceRequest = {...tempServiceRequest, ...inProjectSr};
+        // Populate service request
+        //   Load any in project config and merge with default generated; in project wins
+        const tempServiceRequest = await createValidServiceRequest(
+            registration.hasOwnProperty("serviceRequest")
+                && registration.serviceRequest ? registration.serviceRequest : {},
+        );
+        const inProjectSr = await readEcsServiceSpec(p, "service.json");
+        const validServiceRequest = {...tempServiceRequest, ...inProjectSr};
 
-            // Retrieve existing Task definitions, if we find a matching revision - use that
-            //  otherwise create a new task definition
-            const ecs = await createEcsSession(registration.region, registration.roleDetail, registration.credentialLookup);
+        // Retrieve existing Task definitions, if we find a matching revision - use that
+        //  otherwise create a new task definition
+        const ecs = await createEcsSession(registration.region, registration.roleDetail, registration.credentialLookup);
 
-            // Pull latest def info & compare it to the latest
-            let goodTaskDefinition: ECS.Types.TaskDefinition;
-            const taskDefs = await ecsListTaskDefinitions(ecs, newTaskDef.family);
-            let latestRev;
-            await ecsGetTaskDefinition(ecs, taskDefs.pop())
-                .then(v => {
-                    latestRev = v.taskDefinition;
-                })
-                .catch(() => {
-                    logger.debug(`No task definitions found for ${newTaskDef.family}`);
-                });
+        // Pull latest def info & compare it to the latest
+        let goodTaskDefinition: ECS.Types.TaskDefinition;
+        const taskDefs = await ecsListTaskDefinitions(ecs, newTaskDef.family);
+        let latestRev;
+        await ecsGetTaskDefinition(ecs, taskDefs.pop())
+            .then(v => {
+                latestRev = v.taskDefinition;
+            })
+            .catch(() => {
+                logger.debug(`No task definitions found for ${newTaskDef.family}`);
+            });
 
-            // Compare latest def to new def
-            // - if they differ create a new revision
-            // - if they don't use the existing rev
-            logger.debug(`Latest Task Def: ${JSON.stringify(latestRev)}`);
-            logger.debug(`New Task Def: ${JSON.stringify(newTaskDef)}`);
-            if (latestRev !== undefined && cmpSuppliedTaskDefinition(newTaskDef, latestRev)) {
-                logger.debug(`Using existing task definition: ${latestRev}`);
-                goodTaskDefinition = latestRev;
-            } else {
-                goodTaskDefinition = await ecsRegisterTask(ecs, newTaskDef);
-                logger.debug(`Created new task definition: ${goodTaskDefinition}`);
-            }
+        // Compare latest def to new def
+        // - if they differ create a new revision
+        // - if they don't use the existing rev
+        logger.debug(`Latest Task Def: ${JSON.stringify(latestRev)}`);
+        logger.debug(`New Task Def: ${JSON.stringify(newTaskDef)}`);
+        if (latestRev !== undefined && cmpSuppliedTaskDefinition(newTaskDef, latestRev)) {
+            logger.debug(`Using existing task definition: ${latestRev}`);
+            goodTaskDefinition = latestRev;
+        } else {
+            goodTaskDefinition = await ecsRegisterTask(ecs, newTaskDef);
+            logger.debug(`Created new task definition: ${goodTaskDefinition}`);
+        }
 
-            // Update Service Request with up to date task definition
-            let newServiceRequest: ECS.Types.CreateServiceRequest;
-            newServiceRequest = {
-                ...validServiceRequest,
-                serviceName: validServiceRequest.serviceName ? validServiceRequest.serviceName : sdmGoal.repo.name,
-                taskDefinition: `${goodTaskDefinition.family}:${goodTaskDefinition.revision}`,
-            };
+        // Update Service Request with up to date task definition
+        let newServiceRequest: ECS.Types.CreateServiceRequest;
+        newServiceRequest = {
+            ...validServiceRequest,
+            serviceName: validServiceRequest.serviceName ? validServiceRequest.serviceName : sdmGoal.repo.name,
+            taskDefinition: `${goodTaskDefinition.family}:${goodTaskDefinition.revision}`,
+        };
 
-            logger.debug(`Log sdmGoal data: ${JSON.stringify({
-                serviceRequest: newServiceRequest,
-                taskDefinition: goodTaskDefinition,
-                region: registration.region,
-            })}`);
+        logger.debug(`Log sdmGoal data: ${JSON.stringify({
+            serviceRequest: newServiceRequest,
+            taskDefinition: goodTaskDefinition,
+            region: registration.region,
+        })}`);
 
-            return {
-                ...sdmGoal,
-                data: JSON.stringify({
-                    serviceRequest: newServiceRequest,
-                    taskDefinition: goodTaskDefinition,
-                    region: registration.region,
-                }),
-            };
-        });
-    };
+        return {
+            ...registration,
+            serviceRequest: newServiceRequest,
+            taskDefinition: goodTaskDefinition as ECS.RegisterTaskDefinitionRequest,
+            region: registration.region,
+        };
 }
 
 export async function getSpecFile(p: Project, name: string):
