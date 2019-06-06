@@ -50,6 +50,7 @@ const EcsGoalDefinition: GoalDefinition = {
     waitingForPreApprovalDescription: "Waiting to start ECS deployment",
     stoppedDescription: "Deployment to ECS stopped",
     canceledDescription: "Deployment to ECS cancelled",
+    retryFeasible: true,
 };
 
 export interface ECSTaskDefaults {
