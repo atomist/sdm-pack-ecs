@@ -17,7 +17,8 @@
 import {
     configurationValue,
     logger,
-    Project, projectUtils,
+    Project,
+    projectUtils,
 } from "@atomist/automation-client";
 import {
     RepoContext,
