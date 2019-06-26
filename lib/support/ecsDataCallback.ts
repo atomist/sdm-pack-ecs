@@ -17,7 +17,7 @@
 import {
     configurationValue,
     logger,
-    Project,
+    Project, projectUtils,
 } from "@atomist/automation-client";
 import {
     RepoContext,
@@ -170,10 +170,11 @@ export async function getFinalTaskDefinition(
 
             // Build 'standard' task def from details
             let dockerFile;
-            if (p.hasFile("Dockerfile")) {
-                const d = await p.getFile("Dockerfile");
-                dockerFile = await d.getContent();
-            } else {
+            await projectUtils.doWithFiles(p, "**/Dockerfile", async f => {
+                dockerFile = await f.getContent();
+            });
+
+            if (!dockerFile) {
                 reject(new Error("No task definition present and no dockerfile found!"));
             }
 
