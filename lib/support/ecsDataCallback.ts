@@ -28,7 +28,6 @@ import { ECS } from "aws-sdk";
 import * as path from "path";
 import { createEcsSession } from "../EcsSupport";
 import {
-    EcsDeploy,
     EcsDeployRegistration,
     ECSTaskDefaults,
 } from "../goals/EcsDeploy";
@@ -37,7 +36,6 @@ import {
     cmpSuppliedTaskDefinition,
     ecsGetTaskDefinition,
     ecsListTaskDefinitions,
-    ecsRegisterTask,
 } from "./taskDefs";
 
 export function getImageString(sdmGoal: SdmGoalEvent): string {
@@ -87,8 +85,7 @@ export async function ecsDataCallback(
             logger.debug(`Using existing task definition: ${latestRev}`);
             goodTaskDefinition = latestRev;
         } else {
-            goodTaskDefinition = await ecsRegisterTask(ecs, newTaskDef);
-            logger.debug(`Created new task definition: ${goodTaskDefinition}`);
+            goodTaskDefinition = newTaskDef;
         }
 
         // Update Service Request with up to date task definition

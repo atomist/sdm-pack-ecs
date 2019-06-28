@@ -181,6 +181,45 @@ describe("getFinalTaskDefinition", () => {
             assert.strictEqual(JSON.stringify(result), JSON.stringify(JSON.parse(expectedResult)));
         });
 
+        it("should succeed with dockerfile in non-base", async () => {
+            const dummySdmEvent: SdmGoalEvent = getDummySdmEvent();
+            const p = InMemoryProject.of({ path: "test/Dockerfile", content: dummyDockerFile });
+            const registration: EcsDeployRegistration = { region: "us-east-1"};
+            const result = await getFinalTaskDefinition(p, dummySdmEvent, registration);
+            const expectedResult = `
+            {
+                "family": "fakerepo",
+                "containerDefinitions": [
+                  {
+                    "name": "fakerepo",
+                    "healthCheck": {
+                      "command": [
+                        "CMD-SHELL",
+                        "wget -O /dev/null http://localhost:8080 || exit 1"
+                      ],
+                      "startPeriod": 30
+                    },
+                    "image": "registry.hub.docker.com/fakeowner/fakerepo:0.0.1-SNAPSHOT-master.20181130104224",
+                    "portMappings": [
+                      {
+                        "containerPort": 8080,
+                        "hostPort": 8080
+                      }
+                    ]
+                  }
+                ],
+                "requiresCompatibilities": [
+                  "FARGATE"
+                ],
+                "networkMode": "awsvpc",
+                "cpu": "256",
+                "memory": "512"
+              }
+              `;
+
+            assert.strictEqual(JSON.stringify(result), JSON.stringify(JSON.parse(expectedResult)));
+        });
+
         it("should fail if the dockerfile has no expose ports", async () => {
             const dummySdmEvent: SdmGoalEvent = getDummySdmEvent();
             const p = InMemoryProject.of({ path: "Dockerfile", content: dummyDockerFileNoExpose });
