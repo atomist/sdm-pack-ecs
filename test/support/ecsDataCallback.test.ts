@@ -166,7 +166,9 @@ describe("getFinalTaskDefinition", () => {
                         "containerPort": 8080,
                         "hostPort": 8080
                       }
-                    ]
+                    ],
+                    "cpu": 256,
+                    "memory": 512
                   }
                 ],
                 "requiresCompatibilities": [
@@ -205,7 +207,9 @@ describe("getFinalTaskDefinition", () => {
                         "containerPort": 8080,
                         "hostPort": 8080
                       }
-                    ]
+                    ],
+                    "cpu":256,
+                    "memory":512
                   }
                 ],
                 "requiresCompatibilities": [
@@ -280,9 +284,7 @@ describe("getFinalTaskDefinition", () => {
                         "containerPort": 9000,
                         "hostPort": 9000
                       }
-                    ],
-                    "memory":512,
-                    "cpu":256
+                    ]
                   }
                 ],
                 "requiresCompatibilities": [
@@ -328,8 +330,8 @@ describe("getFinalTaskDefinition", () => {
                         "hostPort": 8080
                       }
                     ],
-                    "memory":512,
-                    "cpu":256
+                    "cpu":1024,
+                    "memory":1024
                   }
                 ],
                 "requiresCompatibilities": [
@@ -370,8 +372,8 @@ describe("getFinalTaskDefinition", () => {
                     },
                     "image": "registry.hub.docker.com/fakeowner/fakerepo:0.0.1-SNAPSHOT-master.20181130104224",
                     "portMappings": [],
-                    "memory":512,
-                    "cpu":256
+                    "cpu":1024,
+                    "memory":1024
                   }
                 ],
                 "requiresCompatibilities": [

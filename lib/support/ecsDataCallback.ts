@@ -21,10 +21,10 @@ import {
     projectUtils,
 } from "@atomist/automation-client";
 import {
-    RepoContext,
     SdmGoalEvent,
 } from "@atomist/sdm";
 import { ECS } from "aws-sdk";
+import * as _ from "lodash";
 import * as path from "path";
 import { createEcsSession } from "../EcsSupport";
 import {
@@ -208,6 +208,10 @@ export async function getFinalTaskDefinition(
                             containerPort: parseInt(exposeCommands[0].args[0], 10),
                             hostPort: parseInt(exposeCommands[0].args[0], 10),
                         }] : [],
+                        cpu: inProjectTaskDef && inProjectTaskDef.hasOwnProperty("cpu") && inProjectTaskDef.cpu ?
+                            parseInt(inProjectTaskDef.cpu, undefined) : taskDefaults.cpu,
+                        memory: inProjectTaskDef && inProjectTaskDef.hasOwnProperty("memory") && inProjectTaskDef.memory ?
+                            parseInt(inProjectTaskDef.memory, undefined) : taskDefaults.memory,
                     },
                 ];
             }
@@ -220,7 +224,7 @@ export async function getFinalTaskDefinition(
                 //  We merge b/c the taskDefinitions can be the complete definition or just a patch
                 if (inProjectTaskDef !== undefined) {
                     // Merge in project config onto blank definition
-                    newTaskDef = {...newTaskDef, ...inProjectTaskDef};
+                    newTaskDef = _.merge(newTaskDef, inProjectTaskDef);
                 } else {
                     // Final fallback, look for taskDefinition on the registration
                     newTaskDef = registration.taskDefinition;
@@ -232,10 +236,10 @@ export async function getFinalTaskDefinition(
                     if (imageString === k.name) {
                         k.image = sdmGoal.push.after.image.imageName;
                     }
-
-                    // If we detect that the memory and cpu values are missing inject them (required in Fargate)
-                    k.memory = k.hasOwnProperty("memory") && k.memory ? k.memory : taskDefaults.memory;
-                    k.cpu = k.hasOwnProperty("cpu") && k.cpu ? k.cpu : taskDefaults.cpu;
+                    //
+                    // // If we detect that the memory and cpu values are missing inject them (required in Fargate)
+                    // k.memory = k.hasOwnProperty("memory") && k.memory ? k.memory : parseInt(newTaskDef.memory, undefined) || taskDefaults.memory;
+                    // k.cpu = k.hasOwnProperty("cpu") && k.cpu ? k.cpu : parseInt(newTaskDef.cpu, undefined) || taskDefaults.cpu;
                 });
                 resolve(newTaskDef);
             }
