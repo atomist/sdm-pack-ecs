@@ -15,7 +15,8 @@
  */
 
 import {
-    GitProject, logger,
+    GitProject,
+    logger,
     RemoteRepoRef,
 } from "@atomist/automation-client";
 import {
@@ -31,7 +32,7 @@ import {
     updateGoal,
 } from "@atomist/sdm";
 import { ECS } from "aws-sdk";
-import {createEcsSession} from "../EcsSupport";
+import { createEcsSession } from "../EcsSupport";
 import {
     EcsDeployer,
     EcsDeployment,
@@ -42,7 +43,7 @@ import {
     EcsDeploymentListenerRegistration,
     EcsDeploymentListenerResponse,
 } from "../support/listeners";
-import {ecsRegisterTask} from "../support/taskDefs";
+import { ecsRegisterTask } from "../support/taskDefs";
 
 // Execute an ECS deploy
 export function executeEcsDeploy(registration: EcsDeployRegistration, listeners: EcsDeploymentListenerRegistration[]): ExecuteGoal {
