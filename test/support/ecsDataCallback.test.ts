@@ -300,6 +300,18 @@ describe("getFinalTaskDefinition", () => {
         });
     });
     describe("create final task definition from local project and customized in project config", () => {
+        it("should fail on malformed JSON", async () => {
+            const dummySdmEvent: SdmGoalEvent = getDummySdmEvent();
+            const p = InMemoryProject.of(
+                {path: "Dockerfile", content: dummyDockerFile },
+                {path: ".atomist/ecs/task-definition.json", content: "{" },
+            );
+            const registration: EcsDeployRegistration = { region: "us-east-1"};
+            return getFinalTaskDefinition(p, dummySdmEvent, registration)
+                .catch(e => {
+                    assert.strictEqual(e.message, "getFinalTaskDefinition: Failed to parse task-definition.json, error => \"Unexpected end of JSON input\"");
+                });
+        });
         it("should succeed", async () => {
             const dummySdmEvent: SdmGoalEvent = getDummySdmEvent();
             const p = InMemoryProject.of(
@@ -367,6 +379,61 @@ describe("getFinalTaskDefinition", () => {
                       "command": [
                         "CMD-SHELL",
                         "wget -O /dev/null http://localhost || exit 1"
+                      ],
+                      "startPeriod": 30
+                    },
+                    "image": "registry.hub.docker.com/fakeowner/fakerepo:0.0.1-SNAPSHOT-master.20181130104224",
+                    "portMappings": [],
+                    "cpu":1024,
+                    "memory":1024
+                  }
+                ],
+                "requiresCompatibilities": [
+                  "FARGATE"
+                ],
+                "networkMode": "awsvpc",
+                "cpu": "1024",
+                "memory": "1024",
+                "taskRoleArn": "arn:aws:iam::247672886355:role/ecsTaskECRRead"
+              }
+              `;
+
+            assert.strictEqual(JSON.stringify(result), JSON.stringify(JSON.parse(expectedResult)));
+        });
+
+        it("should patch nested objects", async () => {
+            const dummySdmEvent: SdmGoalEvent = getDummySdmEvent();
+            const p = InMemoryProject.of(
+                {path: "Dockerfile", content: dummyDockerFileNoExpose },
+                {path: ".atomist/ecs/task-definition.json",
+                    content: JSON.stringify({
+                        taskRoleArn: "arn:aws:iam::247672886355:role/ecsTaskECRRead",
+                        family: "foo",
+                        cpu: "1024",
+                        memory: "1024",
+                        containerDefinitions: [{
+                            healthCheck: {
+                                command: [
+                                    "CMD-SHELL",
+                                    "wget -O /dev/null http://fakehost1:8080 || exit 1",
+                                ],
+                            },
+                        }],
+                    },
+                )},
+            );
+            const registration: EcsDeployRegistration = { region: "us-east-1"};
+            const result = await getFinalTaskDefinition(p, dummySdmEvent, registration);
+            const expectedResult = `
+            {
+                "family": "foo",
+                "containerDefinitions": [
+                  {
+                    "name": "fakerepo",
+                    "healthCheck": {
+                      "command": [
+                        "CMD-SHELL",
+                        "wget -O /dev/null http://fakehost1:8080 || exit 1"
                       ],
                       "startPeriod": 30
                     },

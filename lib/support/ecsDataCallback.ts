@@ -131,16 +131,12 @@ export async function getSpecFile(p: Project, name: string):
 
 export async function readEcsServiceSpec(p: Project, name: string):
     Promise<Partial<ECS.Types.CreateServiceRequest>> {
-    return new Promise<Partial<ECS.Types.CreateServiceRequest>>(async resolve => {
-        resolve(getSpecFile(p, name) as Partial<ECS.Types.CreateServiceRequest>);
-    });
+    return getSpecFile(p, name) as Partial<ECS.Types.CreateServiceRequest>;
 }
 
 export async function readEcsTaskSpec(p: Project, name: string):
     Promise<Partial<ECS.Types.RegisterTaskDefinitionRequest>> {
-    return new Promise<Partial<ECS.Types.RegisterTaskDefinitionRequest>>(async resolve => {
-        resolve(getSpecFile(p, name) as Partial<ECS.Types.RegisterTaskDefinitionRequest>);
-    });
+    return getSpecFile(p, name) as Partial<ECS.Types.RegisterTaskDefinitionRequest>;
 }
 
 export async function getFinalTaskDefinition(
@@ -164,7 +160,14 @@ export async function getFinalTaskDefinition(
 
             // Check if there is an in-project configuration
             // .atomist/task-definition.json
-            const inProjectTaskDef = await readEcsTaskSpec(p, "task-definition.json");
+            let inProjectTaskDef: Partial<ECS.RegisterTaskDefinitionRequest>;
+            try {
+                inProjectTaskDef = await readEcsTaskSpec(p, "task-definition.json");
+            } catch (e) {
+                const msg = `getFinalTaskDefinition: Failed to parse task-definition.json, error => ${JSON.stringify(e)}`;
+                logger.error(msg);
+                reject(new Error(msg));
+            }
 
             // Build 'standard' task def from details
             let dockerFile;
@@ -236,10 +239,6 @@ export async function getFinalTaskDefinition(
                     if (imageString === k.name) {
                         k.image = sdmGoal.push.after.image.imageName;
                     }
-                    //
-                    // // If we detect that the memory and cpu values are missing inject them (required in Fargate)
-                    // k.memory = k.hasOwnProperty("memory") && k.memory ? k.memory : parseInt(newTaskDef.memory, undefined) || taskDefaults.memory;
-                    // k.cpu = k.hasOwnProperty("cpu") && k.cpu ? k.cpu : parseInt(newTaskDef.cpu, undefined) || taskDefaults.cpu;
                 });
                 resolve(newTaskDef);
             }
