@@ -143,104 +143,102 @@ export async function getFinalTaskDefinition(
     p: Project,
     sdmGoal: SdmGoalEvent,
     registration: EcsDeployRegistration): Promise<ECS.Types.RegisterTaskDefinitionRequest> {
-        return new Promise<ECS.Types.RegisterTaskDefinitionRequest>(async (resolve, reject) => {
-            const taskDefaults = registration.taskDefaults ?
-                registration.taskDefaults : configurationValue<ECSTaskDefaults>("sdm.aws.ecs.taskDefaults");
+        const taskDefaults = registration.taskDefaults ?
+            registration.taskDefaults : configurationValue<ECSTaskDefaults>("sdm.aws.ecs.taskDefaults");
 
-            // Set image string, example source value:
-            //  <registry>/<author>/<image>:<version>"
-            const imageString = getImageString(sdmGoal);
+        // Set image string, example source value:
+        //  <registry>/<author>/<image>:<version>"
+        const imageString = getImageString(sdmGoal);
 
-            // Create or Update a task definition
-            // Check for passed taskdefinition info, and update the container field
-            let newTaskDef: ECS.Types.RegisterTaskDefinitionRequest = {
-                family: "",
-                containerDefinitions: [],
-            };
+        // Create or Update a task definition
+        // Check for passed taskdefinition info, and update the container field
+        let newTaskDef: ECS.Types.RegisterTaskDefinitionRequest = {
+            family: "",
+            containerDefinitions: [],
+        };
 
-            // Check if there is an in-project configuration
-            // .atomist/task-definition.json
-            let inProjectTaskDef: Partial<ECS.RegisterTaskDefinitionRequest>;
-            try {
-                inProjectTaskDef = await readEcsTaskSpec(p, "task-definition.json");
-            } catch (e) {
-                const msg = `getFinalTaskDefinition: Failed to parse task-definition.json, error => ${JSON.stringify(e)}`;
-                logger.error(msg);
-                reject(new Error(msg));
-            }
+        // Check if there is an in-project configuration
+        // .atomist/task-definition.json
+        let inProjectTaskDef: Partial<ECS.RegisterTaskDefinitionRequest>;
+        try {
+            inProjectTaskDef = await readEcsTaskSpec(p, "task-definition.json");
+        } catch (e) {
+            const msg = `getFinalTaskDefinition: Failed to parse task-definition.json, error => ${JSON.stringify(e)}`;
+            logger.error(msg);
+            throw new Error(msg);
+        }
 
-            // Build 'standard' task def from details
-            let dockerFile;
-            await projectUtils.doWithFiles(p, "**/Dockerfile", async f => {
-                dockerFile = await f.getContent();
-            });
-
-            if (!dockerFile) {
-                reject(new Error("No task definition present and no dockerfile found!"));
-            }
-
-            // Get Docker commands out
-            const parser = require("docker-file-parser");
-            const options = { includeComments: false };
-            const commands = parser.parse(dockerFile, options);
-            const exposeCommands = commands.filter((c: any) => c.name === "EXPOSE");
-
-            if (exposeCommands.length !== 1 && !inProjectTaskDef) {
-                reject(new Error(`Unable to determine port for container. Dockerfile in project ` +
-                    `'${sdmGoal.repo.owner}/${sdmGoal.repo.name}' is missing an EXPOSE instruction or has more then 1.` +
-                    exposeCommands.map((c: any) => c.args).join(", ")));
-            } else {
-                newTaskDef.family = imageString;
-                newTaskDef.requiresCompatibilities = taskDefaults.requiredCompatibilities;
-                newTaskDef.networkMode = taskDefaults.networkMode;
-                newTaskDef.cpu = taskDefaults.cpu.toString();
-                newTaskDef.memory = taskDefaults.memory.toString();
-                newTaskDef.containerDefinitions = [
-                    {
-                        name: imageString,
-                        healthCheck: {
-                            command: [
-                                "CMD-SHELL",
-                                `wget -O /dev/null http://localhost${exposeCommands.length > 0 ? ":" + exposeCommands[0].args[0] : ""} || exit 1`,
-                            ],
-                            startPeriod: 30,
-                        },
-                        image: sdmGoal.push.after.image.imageName,
-                        // If there are expose commands in the dockerfile, convert those to port mappings
-                        portMappings: exposeCommands.length > 0 ? [{
-                            containerPort: parseInt(exposeCommands[0].args[0], 10),
-                            hostPort: parseInt(exposeCommands[0].args[0], 10),
-                        }] : [],
-                        cpu: inProjectTaskDef && inProjectTaskDef.hasOwnProperty("cpu") && inProjectTaskDef.cpu ?
-                            parseInt(inProjectTaskDef.cpu, undefined) : taskDefaults.cpu,
-                        memory: inProjectTaskDef && inProjectTaskDef.hasOwnProperty("memory") && inProjectTaskDef.memory ?
-                            parseInt(inProjectTaskDef.memory, undefined) : taskDefaults.memory,
-                    },
-                ];
-            }
-
-            // If our registration doesn't include a task definition and there isn't a definition in the project, use the generated one
-            if (!registration.taskDefinition && inProjectTaskDef === undefined) {
-                resolve(newTaskDef);
-            } else {
-                // If there is a in-project task definition merge it with the built-in one
-                //  We merge b/c the taskDefinitions can be the complete definition or just a patch
-                if (inProjectTaskDef !== undefined) {
-                    // Merge in project config onto blank definition
-                    newTaskDef = _.merge(newTaskDef, inProjectTaskDef);
-                } else {
-                    // Final fallback, look for taskDefinition on the registration
-                    newTaskDef = registration.taskDefinition;
-                }
-
-                // Within the task definition, search all container defs and for the one that matches this Image (from the goal) update to version
-                // we just built
-                newTaskDef.containerDefinitions.forEach( k => {
-                    if (imageString === k.name) {
-                        k.image = sdmGoal.push.after.image.imageName;
-                    }
-                });
-                resolve(newTaskDef);
-            }
+        // Build 'standard' task def from details
+        let dockerFile;
+        await projectUtils.doWithFiles(p, "**/Dockerfile", async f => {
+            dockerFile = await f.getContent();
         });
+
+        if (!dockerFile) {
+             throw new Error("No task definition present and no dockerfile found!");
+        }
+
+        // Get Docker commands out
+        const parser = require("docker-file-parser");
+        const options = { includeComments: false };
+        const commands = parser.parse(dockerFile, options);
+        const exposeCommands = commands.filter((c: any) => c.name === "EXPOSE");
+
+        if (exposeCommands.length !== 1 && !inProjectTaskDef) {
+            throw new Error(`Unable to determine port for container. Dockerfile in project ` +
+                `'${sdmGoal.repo.owner}/${sdmGoal.repo.name}' is missing an EXPOSE instruction or has more then 1.` +
+                exposeCommands.map((c: any) => c.args).join(", "));
+        } else {
+            newTaskDef.family = imageString;
+            newTaskDef.requiresCompatibilities = taskDefaults.requiredCompatibilities;
+            newTaskDef.networkMode = taskDefaults.networkMode;
+            newTaskDef.cpu = taskDefaults.cpu.toString();
+            newTaskDef.memory = taskDefaults.memory.toString();
+            newTaskDef.containerDefinitions = [
+                {
+                    name: imageString,
+                    healthCheck: {
+                        command: [
+                            "CMD-SHELL",
+                            `wget -O /dev/null http://localhost${exposeCommands.length > 0 ? ":" + exposeCommands[0].args[0] : ""} || exit 1`,
+                        ],
+                        startPeriod: 30,
+                    },
+                    image: sdmGoal.push.after.image.imageName,
+                    // If there are expose commands in the dockerfile, convert those to port mappings
+                    portMappings: exposeCommands.length > 0 ? [{
+                        containerPort: parseInt(exposeCommands[0].args[0], 10),
+                        hostPort: parseInt(exposeCommands[0].args[0], 10),
+                    }] : [],
+                    cpu: inProjectTaskDef && inProjectTaskDef.hasOwnProperty("cpu") && inProjectTaskDef.cpu ?
+                        parseInt(inProjectTaskDef.cpu, undefined) : taskDefaults.cpu,
+                    memory: inProjectTaskDef && inProjectTaskDef.hasOwnProperty("memory") && inProjectTaskDef.memory ?
+                        parseInt(inProjectTaskDef.memory, undefined) : taskDefaults.memory,
+                },
+            ];
+        }
+
+        // If our registration doesn't include a task definition and there isn't a definition in the project, use the generated one
+        if (!registration.taskDefinition && inProjectTaskDef === undefined) {
+            return newTaskDef;
+        } else {
+            // If there is a in-project task definition merge it with the built-in one
+            //  We merge b/c the taskDefinitions can be the complete definition or just a patch
+            if (inProjectTaskDef !== undefined) {
+                // Merge in project config onto blank definition
+                newTaskDef = _.merge(newTaskDef, inProjectTaskDef);
+            } else {
+                // Final fallback, look for taskDefinition on the registration
+                newTaskDef = registration.taskDefinition;
+            }
+
+            // Within the task definition, search all container defs and for the one that matches this Image (from the goal) update to version
+            // we just built
+            newTaskDef.containerDefinitions.forEach( k => {
+                if (imageString === k.name) {
+                    k.image = sdmGoal.push.after.image.imageName;
+                }
+            });
+            return newTaskDef;
+        }
     }

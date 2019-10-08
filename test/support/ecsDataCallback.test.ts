@@ -235,6 +235,17 @@ describe("getFinalTaskDefinition", () => {
                 assert(e.message === "Unable to determine port for container. Dockerfile in project 'fakeowner/fakerepo' is missing an EXPOSE instruction or has more then 1.");
             });
         });
+        it("should fail if the dockerfile does not exist", async () => {
+            const dummySdmEvent: SdmGoalEvent = getDummySdmEvent();
+            const p = InMemoryProject.of();
+            const registration: EcsDeployRegistration = { region: "us-east-1"};
+            await getFinalTaskDefinition(p, dummySdmEvent, registration)
+                .then()
+                .catch(e => {
+                    /* tslint:disable:max-line-length */
+                    assert.strictEqual(e.message, "No task definition present and no dockerfile found!");
+                });
+        });
     });
 
     describe("create final task definition from local project with invalid dockerfile", () => {
