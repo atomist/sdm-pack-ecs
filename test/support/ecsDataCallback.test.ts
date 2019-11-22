@@ -166,7 +166,50 @@ describe("getFinalTaskDefinition", () => {
                         "containerPort": 8080,
                         "hostPort": 8080
                       }
-                    ]
+                    ],
+                    "cpu": 256,
+                    "memory": 512
+                  }
+                ],
+                "requiresCompatibilities": [
+                  "FARGATE"
+                ],
+                "networkMode": "awsvpc",
+                "cpu": "256",
+                "memory": "512"
+              }
+              `;
+
+            assert.strictEqual(JSON.stringify(result), JSON.stringify(JSON.parse(expectedResult)));
+        });
+
+        it("should succeed with dockerfile in non-base", async () => {
+            const dummySdmEvent: SdmGoalEvent = getDummySdmEvent();
+            const p = InMemoryProject.of({ path: "test/Dockerfile", content: dummyDockerFile });
+            const registration: EcsDeployRegistration = { region: "us-east-1"};
+            const result = await getFinalTaskDefinition(p, dummySdmEvent, registration);
+            const expectedResult = `
+            {
+                "family": "fakerepo",
+                "containerDefinitions": [
+                  {
+                    "name": "fakerepo",
+                    "healthCheck": {
+                      "command": [
+                        "CMD-SHELL",
+                        "wget -O /dev/null http://localhost:8080 || exit 1"
+                      ],
+                      "startPeriod": 30
+                    },
+                    "image": "registry.hub.docker.com/fakeowner/fakerepo:0.0.1-SNAPSHOT-master.20181130104224",
+                    "portMappings": [
+                      {
+                        "containerPort": 8080,
+                        "hostPort": 8080
+                      }
+                    ],
+                    "cpu":256,
+                    "memory":512
                   }
                 ],
                 "requiresCompatibilities": [
@@ -191,6 +234,17 @@ describe("getFinalTaskDefinition", () => {
                 /* tslint:disable:max-line-length */
                 assert(e.message === "Unable to determine port for container. Dockerfile in project 'fakeowner/fakerepo' is missing an EXPOSE instruction or has more then 1.");
             });
+        });
+        it("should fail if the dockerfile does not exist", async () => {
+            const dummySdmEvent: SdmGoalEvent = getDummySdmEvent();
+            const p = InMemoryProject.of();
+            const registration: EcsDeployRegistration = { region: "us-east-1"};
+            await getFinalTaskDefinition(p, dummySdmEvent, registration)
+                .then()
+                .catch(e => {
+                    /* tslint:disable:max-line-length */
+                    assert.strictEqual(e.message, "No task definition present and no dockerfile found!");
+                });
         });
     });
 
@@ -241,9 +295,7 @@ describe("getFinalTaskDefinition", () => {
                         "containerPort": 9000,
                         "hostPort": 9000
                       }
-                    ],
-                    "memory":512,
-                    "cpu":256
+                    ]
                   }
                 ],
                 "requiresCompatibilities": [
@@ -259,6 +311,18 @@ describe("getFinalTaskDefinition", () => {
         });
     });
     describe("create final task definition from local project and customized in project config", () => {
+        it("should fail on malformed JSON", async () => {
+            const dummySdmEvent: SdmGoalEvent = getDummySdmEvent();
+            const p = InMemoryProject.of(
+                {path: "Dockerfile", content: dummyDockerFile },
+                {path: ".atomist/ecs/task-definition.json", content: "{" },
+            );
+            const registration: EcsDeployRegistration = { region: "us-east-1"};
+            return getFinalTaskDefinition(p, dummySdmEvent, registration)
+                .catch(e => {
+                    assert.strictEqual(e.message, "getFinalTaskDefinition: Failed to parse task-definition.json, error => \"Unexpected end of JSON input\"");
+                });
+        });
         it("should succeed", async () => {
             const dummySdmEvent: SdmGoalEvent = getDummySdmEvent();
             const p = InMemoryProject.of(
@@ -289,8 +353,8 @@ describe("getFinalTaskDefinition", () => {
                         "hostPort": 8080
                       }
                     ],
-                    "memory":512,
-                    "cpu":256
+                    "cpu":1024,
+                    "memory":1024
                   }
                 ],
                 "requiresCompatibilities": [
@@ -331,8 +395,63 @@ describe("getFinalTaskDefinition", () => {
                     },
                     "image": "registry.hub.docker.com/fakeowner/fakerepo:0.0.1-SNAPSHOT-master.20181130104224",
                     "portMappings": [],
-                    "memory":512,
-                    "cpu":256
+                    "cpu":1024,
+                    "memory":1024
+                  }
+                ],
+                "requiresCompatibilities": [
+                  "FARGATE"
+                ],
+                "networkMode": "awsvpc",
+                "cpu": "1024",
+                "memory": "1024",
+                "taskRoleArn": "arn:aws:iam::247672886355:role/ecsTaskECRRead"
+              }
+              `;
+
+            assert.strictEqual(JSON.stringify(result), JSON.stringify(JSON.parse(expectedResult)));
+        });
+
+        it("should patch nested objects", async () => {
+            const dummySdmEvent: SdmGoalEvent = getDummySdmEvent();
+            const p = InMemoryProject.of(
+                {path: "Dockerfile", content: dummyDockerFileNoExpose },
+                {path: ".atomist/ecs/task-definition.json",
+                    content: JSON.stringify({
+                        taskRoleArn: "arn:aws:iam::247672886355:role/ecsTaskECRRead",
+                        family: "foo",
+                        cpu: "1024",
+                        memory: "1024",
+                        containerDefinitions: [{
+                            healthCheck: {
+                                command: [
+                                    "CMD-SHELL",
+                                    "wget -O /dev/null http://fakehost1:8080 || exit 1",
+                                ],
+                            },
+                        }],
+                    },
+                )},
+            );
+            const registration: EcsDeployRegistration = { region: "us-east-1"};
+            const result = await getFinalTaskDefinition(p, dummySdmEvent, registration);
+            const expectedResult = `
+            {
+                "family": "foo",
+                "containerDefinitions": [
+                  {
+                    "name": "fakerepo",
+                    "healthCheck": {
+                      "command": [
+                        "CMD-SHELL",
+                        "wget -O /dev/null http://fakehost1:8080 || exit 1"
+                      ],
+                      "startPeriod": 30
+                    },
+                    "image": "registry.hub.docker.com/fakeowner/fakerepo:0.0.1-SNAPSHOT-master.20181130104224",
+                    "portMappings": [],
+                    "cpu":1024,
+                    "memory":1024
                   }
                 ],
                 "requiresCompatibilities": [

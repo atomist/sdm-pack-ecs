@@ -16,6 +16,7 @@
 
 import {
     GitProject,
+    logger,
     RemoteRepoRef,
 } from "@atomist/automation-client";
 import {
@@ -31,6 +32,7 @@ import {
     updateGoal,
 } from "@atomist/sdm";
 import { ECS } from "aws-sdk";
+import { createEcsSession } from "../EcsSupport";
 import {
     EcsDeployer,
     EcsDeployment,
@@ -41,6 +43,7 @@ import {
     EcsDeploymentListenerRegistration,
     EcsDeploymentListenerResponse,
 } from "../support/listeners";
+import { ecsRegisterTask } from "../support/taskDefs";
 
 // Execute an ECS deploy
 export function executeEcsDeploy(registration: EcsDeployRegistration, listeners: EcsDeploymentListenerRegistration[]): ExecuteGoal {
@@ -60,6 +63,17 @@ export function executeEcsDeploy(registration: EcsDeployRegistration, listeners:
         computedRegistration = lrBeforeResult.registration;
         if (lrBeforeResult.externalUrls) {
             newExternalUrls.push(...lrBeforeResult.externalUrls);
+        }
+
+        // Create new task def based on updated registration so long as we didn't find a match task definition
+        // We can validate if we did by check if the taskDef has an ARN
+        if (!computedRegistration.taskDefinition.hasOwnProperty("taskDefinitionArn")) {
+            const ecs = await createEcsSession(registration.region, registration.roleDetail, registration.credentialLookup);
+            const newTaskDefinition = await ecsRegisterTask(ecs, computedRegistration.taskDefinition);
+            computedRegistration.serviceRequest = {
+                ...computedRegistration.serviceRequest,
+                taskDefinition: newTaskDefinition.taskDefinitionArn,
+            };
         }
 
         // Update phase
@@ -213,6 +227,7 @@ export async function invokeEcsDeploymentListeners(
 
             // If this listener returned a registration update, replace registration - in it's entirety
             if (result.registration) {
+                logger.debug(`invokeEcsDeploymentListeners: Registration was updated!`);
                 newRegistration = result.registration;
             }
 
