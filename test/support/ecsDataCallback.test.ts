@@ -153,13 +153,6 @@ describe("getFinalTaskDefinition", () => {
                 "containerDefinitions": [
                   {
                     "name": "fakerepo",
-                    "healthCheck": {
-                      "command": [
-                        "CMD-SHELL",
-                        "wget -O /dev/null http://localhost:8080 || exit 1"
-                      ],
-                      "startPeriod": 30
-                    },
                     "image": "registry.hub.docker.com/fakeowner/fakerepo:0.0.1-SNAPSHOT-master.20181130104224",
                     "portMappings": [
                       {
@@ -194,13 +187,6 @@ describe("getFinalTaskDefinition", () => {
                 "containerDefinitions": [
                   {
                     "name": "fakerepo",
-                    "healthCheck": {
-                      "command": [
-                        "CMD-SHELL",
-                        "wget -O /dev/null http://localhost:8080 || exit 1"
-                      ],
-                      "startPeriod": 30
-                    },
                     "image": "registry.hub.docker.com/fakeowner/fakerepo:0.0.1-SNAPSHOT-master.20181130104224",
                     "portMappings": [
                       {
@@ -282,13 +268,7 @@ describe("getFinalTaskDefinition", () => {
                 "containerDefinitions": [
                   {
                     "name": "dummy",
-                    "healthCheck": {
-                      "command": [
-                        "CMD-SHELL",
-                        "wget -O /dev/null http://localhost:8080 || exit 1"
-                      ],
-                      "startPeriod": 30
-                    },
+                    "healthCheck":{"command":["CMD-SHELL","wget -O /dev/null http://localhost:8080 || exit 1"],"startPeriod":30},
                     "image": "registry.hub.docker.com/fakeowner/fakerepo:0.0.1-SNAPSHOT-master.20181130104224",
                     "portMappings": [
                       {
@@ -339,13 +319,6 @@ describe("getFinalTaskDefinition", () => {
                 "containerDefinitions": [
                   {
                     "name": "fakerepo",
-                    "healthCheck": {
-                      "command": [
-                        "CMD-SHELL",
-                        "wget -O /dev/null http://localhost:8080 || exit 1"
-                      ],
-                      "startPeriod": 30
-                    },
                     "image": "registry.hub.docker.com/fakeowner/fakerepo:0.0.1-SNAPSHOT-master.20181130104224",
                     "portMappings": [
                       {
@@ -386,13 +359,6 @@ describe("getFinalTaskDefinition", () => {
                 "containerDefinitions": [
                   {
                     "name": "fakerepo",
-                    "healthCheck": {
-                      "command": [
-                        "CMD-SHELL",
-                        "wget -O /dev/null http://localhost || exit 1"
-                      ],
-                      "startPeriod": 30
-                    },
                     "image": "registry.hub.docker.com/fakeowner/fakerepo:0.0.1-SNAPSHOT-master.20181130104224",
                     "portMappings": [],
                     "cpu":1024,
@@ -441,17 +407,16 @@ describe("getFinalTaskDefinition", () => {
                 "containerDefinitions": [
                   {
                     "name": "fakerepo",
+                    "image": "registry.hub.docker.com/fakeowner/fakerepo:0.0.1-SNAPSHOT-master.20181130104224",
+                    "portMappings": [],
+                    "cpu":1024,
+                    "memory":1024,
                     "healthCheck": {
                       "command": [
                         "CMD-SHELL",
                         "wget -O /dev/null http://fakehost1:8080 || exit 1"
-                      ],
-                      "startPeriod": 30
-                    },
-                    "image": "registry.hub.docker.com/fakeowner/fakerepo:0.0.1-SNAPSHOT-master.20181130104224",
-                    "portMappings": [],
-                    "cpu":1024,
-                    "memory":1024
+                      ]
+                    }
                   }
                 ],
                 "requiresCompatibilities": [

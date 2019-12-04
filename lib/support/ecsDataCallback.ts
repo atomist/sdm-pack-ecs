@@ -197,13 +197,6 @@ export async function getFinalTaskDefinition(
             newTaskDef.containerDefinitions = [
                 {
                     name: imageString,
-                    healthCheck: {
-                        command: [
-                            "CMD-SHELL",
-                            `wget -O /dev/null http://localhost${exposeCommands.length > 0 ? ":" + exposeCommands[0].args[0] : ""} || exit 1`,
-                        ],
-                        startPeriod: 30,
-                    },
                     image: sdmGoal.push.after.image.imageName,
                     // If there are expose commands in the dockerfile, convert those to port mappings
                     portMappings: exposeCommands.length > 0 ? [{
