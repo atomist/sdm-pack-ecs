@@ -24,6 +24,7 @@ import {
     SdmGoalEvent,
 } from "@atomist/sdm";
 import { ECS } from "aws-sdk";
+import * as deepMerge from "deepmerge";
 import * as _ from "lodash";
 import * as path from "path";
 import { createEcsSession } from "../EcsSupport";
@@ -50,15 +51,7 @@ export async function ecsDataCallback(
         // Merge task definition configurations together - SDM Goal registration and in project
         //   in-project wins
         const newTaskDef = await getFinalTaskDefinition(p, sdmGoal, registration);
-
-        // Populate service request
-        //   Load any in project config and merge with default generated; in project wins
-        const tempServiceRequest = await createValidServiceRequest(
-            registration.hasOwnProperty("serviceRequest")
-                && registration.serviceRequest ? registration.serviceRequest : {},
-        );
-        const inProjectSr = await readEcsServiceSpec(p, "service.json");
-        const validServiceRequest = {...tempServiceRequest, ...inProjectSr};
+        const validServiceRequest = await getFinalServiceDefinition(p, sdmGoal, registration);
 
         // Retrieve existing Task definitions, if we find a matching revision - use that
         //  otherwise create a new task definition
@@ -92,7 +85,6 @@ export async function ecsDataCallback(
         let newServiceRequest: ECS.Types.CreateServiceRequest;
         newServiceRequest = {
             ...validServiceRequest,
-            serviceName: validServiceRequest.serviceName ? validServiceRequest.serviceName : sdmGoal.repo.name,
             taskDefinition: `${goodTaskDefinition.family}:${goodTaskDefinition.revision}`,
         };
 
@@ -235,3 +227,30 @@ export async function getFinalTaskDefinition(
             return newTaskDef;
         }
     }
+
+export async function getFinalServiceDefinition(
+    p: Project,
+    sdmGoal: SdmGoalEvent,
+    registration: EcsDeployRegistration,
+): Promise<ECS.CreateServiceRequest> {
+    // Populate service request
+    //   Load any in project config and merge with default generated; in project wins
+    const tempServiceRequest = await createValidServiceRequest(
+        registration.hasOwnProperty("serviceRequest")
+    && registration.serviceRequest ? registration.serviceRequest : {},
+    );
+
+    let validServiceRequest: ECS.CreateServiceRequest;
+    const inProjectSr = await readEcsServiceSpec(p, "service.json");
+    if (inProjectSr) {
+        const overwriteMerge = (destinationArray: any, sourceArray: any, options: any) => sourceArray;
+        validServiceRequest = deepMerge(tempServiceRequest, inProjectSr, {arrayMerge: overwriteMerge});
+    } else {
+        validServiceRequest = tempServiceRequest;
+    }
+
+    if (!validServiceRequest.serviceName) {
+        validServiceRequest.serviceName = sdmGoal.repo.name.toLowerCase();
+    }
+    return validServiceRequest;
+}
