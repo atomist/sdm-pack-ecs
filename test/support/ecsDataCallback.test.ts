@@ -22,8 +22,11 @@ import {
 import * as assert from "assert";
 import { ECS } from "aws-sdk";
 import { EcsDeployRegistration } from "../../lib/goals/EcsDeploy";
-import {getFinalServiceDefinition, getFinalTaskDefinition} from "../../lib/support/ecsDataCallback";
-import {createValidServiceRequest} from "../../lib/support/ecsServiceRequest";
+import {
+    getFinalServiceDefinition,
+    getFinalTaskDefinition,
+} from "../../lib/support/ecsDataCallback";
+import { createValidServiceRequest } from "../../lib/support/ecsServiceRequest";
 
 // Note this dockerfile wouldn't actually work - its just for test purposes
 const dummyDockerFile = `
