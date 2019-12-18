@@ -22,7 +22,8 @@ import {
 import * as assert from "assert";
 import { ECS } from "aws-sdk";
 import { EcsDeployRegistration } from "../../lib/goals/EcsDeploy";
-import { getFinalTaskDefinition } from "../../lib/support/ecsDataCallback";
+import {getFinalServiceDefinition, getFinalTaskDefinition} from "../../lib/support/ecsDataCallback";
+import {createValidServiceRequest} from "../../lib/support/ecsServiceRequest";
 
 // Note this dockerfile wouldn't actually work - its just for test purposes
 const dummyDockerFile = `
@@ -108,35 +109,7 @@ const getDummySdmEvent = (): SdmGoalEvent => {
 };
 
 describe("getFinalTaskDefinition", () => {
-    before(() => {
-        (global as any).__runningAutomationClient = {
-            configuration: {
-                sdm: {
-                    aws: {
-                        ecs: {
-                            launch_type: "FARGATE",
-                            cluster: "tutorial",
-                            desiredCount: 3,
-                            networkConfiguration: {
-                                awsvpcConfiguration: {
-                                    subnets: ["subnet-02ddf34bfe7f6c19a", "subnet-0c5bfb43a631bee45"],
-                                    securityGroups: ["sg-0959d9866b23698f2"],
-                                    assignPublicIp: "ENABLED",
-                                },
-                            },
-                            taskDefaults: {
-                                cpu: 256,
-                                memory: 512,
-                                requiredCompatibilities: ["FARGATE"],
-                                networkMode: "awsvpc",
-                            },
-                        },
-                    },
-                },
-            },
-        };
-    });
-
+    before(fakeConfig);
     after(() => {
         delete (global as any).__runningAutomationClient;
     });
@@ -433,3 +406,100 @@ describe("getFinalTaskDefinition", () => {
         });
     });
 });
+
+describe("create final service definition from local project and customized in project config", () => {
+    before(fakeConfig);
+    after(() => {
+        delete (global as any).__runningAutomationClient;
+    });
+    it("should load in-project configuration merged with the defaults", async () => {
+        const registration: EcsDeployRegistration = { region: "us-east-1"};
+        const p = InMemoryProject.of(
+            {path: "Dockerfile", content: dummyDockerFileNoExpose },
+            {path: ".atomist/ecs/service.json",
+                content: JSON.stringify({
+                        serviceName: "testservice",
+                        networkConfiguration: {
+                                awsvpcConfiguration: {
+                                    securityGroups: ["sg-0959d9866b236ffff"],
+                                    assignPublicIp: "DISABLED",
+                                },
+                            },
+                        },
+                )},
+        );
+        const result = await getFinalServiceDefinition(p, getDummySdmEvent(), registration);
+        const expectedResult = {
+            serviceName: "testservice",
+            launchType: "FARGATE",
+            cluster: "tutorial",
+            desiredCount: 3,
+            networkConfiguration: {
+                awsvpcConfiguration: {
+                    subnets: [
+                        "subnet-02ddf34bfe7f6c19a",
+                        "subnet-0c5bfb43a631bee45",
+                    ],
+                    securityGroups: [
+                        "sg-0959d9866b236ffff",
+                    ],
+                    assignPublicIp: "DISABLED",
+                },
+            },
+        };
+        assert.strictEqual(JSON.stringify(result, undefined, 2), JSON.stringify(expectedResult, undefined, 2));
+    });
+    it("should create valid service request using the defaults", async () => {
+        const registration: EcsDeployRegistration = { region: "us-east-1"};
+        const p = InMemoryProject.of( {path: "Dockerfile", content: dummyDockerFileNoExpose });
+        const result = await getFinalServiceDefinition(p, getDummySdmEvent(), registration);
+        const expectedResult = {
+            serviceName: "fakerepo",
+            launchType: "FARGATE",
+            cluster: "tutorial",
+            desiredCount: 3,
+            networkConfiguration: {
+                awsvpcConfiguration: {
+                    subnets: [
+                        "subnet-02ddf34bfe7f6c19a",
+                        "subnet-0c5bfb43a631bee45",
+                    ],
+                    securityGroups: [
+                        "sg-0959d9866b23698f2",
+                    ],
+                    assignPublicIp: "ENABLED",
+                },
+            },
+        };
+        assert.strictEqual(JSON.stringify(result, undefined, 2), JSON.stringify(expectedResult, undefined, 2));
+    });
+});
+
+function fakeConfig(): void {
+        (global as any).__runningAutomationClient = {
+            configuration: {
+                sdm: {
+                    aws: {
+                        ecs: {
+                            launch_type: "FARGATE",
+                            cluster: "tutorial",
+                            desiredCount: 3,
+                            networkConfiguration: {
+                                awsvpcConfiguration: {
+                                    subnets: ["subnet-02ddf34bfe7f6c19a", "subnet-0c5bfb43a631bee45"],
+                                    securityGroups: ["sg-0959d9866b23698f2"],
+                                    assignPublicIp: "ENABLED",
+                                },
+                            },
+                            taskDefaults: {
+                                cpu: 256,
+                                memory: 512,
+                                requiredCompatibilities: ["FARGATE"],
+                                networkMode: "awsvpc",
+                            },
+                        },
+                    },
+                },
+            },
+        };
+    }
