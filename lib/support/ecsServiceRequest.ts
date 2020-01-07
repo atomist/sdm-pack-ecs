@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018 Atomist, Inc.
+ * Copyright © 2019 Atomist, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -42,7 +42,7 @@ export async function createUpdateServiceRequest(params: ECS.Types.CreateService
 // This function takes a partial serviceRequest and populates enough to make it valid
 // using the defaults supplied in client config
 // tslint:disable-next-line:cyclomatic-complexity
-export async function createValidServiceRequest(request: Partial<ECS.Types.CreateServiceRequest>): Promise<Partial<ECS.Types.CreateServiceRequest>> {
+export async function createValidServiceRequest(request: Partial<ECS.Types.CreateServiceRequest>): Promise<ECS.Types.CreateServiceRequest> {
     return {
         serviceName: request.hasOwnProperty("serviceName") && request.serviceName ? request.serviceName : undefined,
         launchType: request.hasOwnProperty("launchType") && request.launchType
